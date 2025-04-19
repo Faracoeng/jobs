@@ -1,0 +1,58 @@
+# Binários compilados do Go
+/bin/
+/build/
+/dist/
+*.exe
+*.out
+*.test
+
+# Módulos
+vendor/
+go.sum
+go.mod
+
+# Diretório de cache do Go
+Gopkg.lock
+Gopkg.toml
+*.lock
+*.mod
+*.tmp
+
+# Arquivos de log e debug
+*.log
+
+# Dados sensíveis ou locais
+.env
+.env.*
+
+# Arquivos temporários
+*.swp
+*.swo
+*~
+*.bak
+
+# Diretórios gerados automaticamente (ex: Docker volumes mapeados)
+data/
+.docker/
+docker-data/
+tmp/
+
+# Configs do Neo4j criados em volume
+neo4j/
+logs/
+import/
+plugins/
+conf/
+run/
+
+# IDEs
+.vscode/
+.idea/
+*.code-workspace
+
+# Mac / Linux / Windows extras
+.DS_Store
+Thumbs.db
+
+# CSVs
+*.csv
