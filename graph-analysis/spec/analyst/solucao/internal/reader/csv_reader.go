@@ -1,42 +1,129 @@
 package reader
 
 import (
-	"bufio"
-	"encoding/csv"
 	"log"
-	"os"
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/model"
-)
-func ReadeCountries(path string) []model.Country{
-	f, err := os.Open(path)
-	if err != nil {
-		log.Printf("Erro ao abrir arquivo %s: %v", path, err)
-		return nil
-	}
-	defer f.Close()
+	"strconv"
 
-	// Adiciona buffer para leitura, bom para arquivos CSV grandes
-	r := csv.NewReader(bufio.NewReader(f))
-	countries, err := r.ReadAll()
-	if err != nil {
-		log.Printf("Erro ao ler CSV %s: %v", path, err)
-		return nil
-	}
-	var countryList []model.Country
-	for i, row := range countries {
-		// Pula a primeira linha do csv
-		if i == 0 {
-			continue
-		}
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/model"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/util"
+)
+
+func ReadCountries(path string) []model.Country {
+	rows := util.ReadCSVFile(path)
+	var result []model.Country
+
+	for i, row := range rows {
 		if len(row) < 2 {
-			log.Printf("Linha %d inválida em %s: %v", i, path, row)
+			log.Printf("Linha %d inválida: %+v", i+2, row)
 			continue
 		}
-		country := model.Country{
+		result = append(result, model.Country{
 			ISO3: row[0],
 			Name: row[1],
-		}
-		countryList = append(countryList, country)
+		})
 	}
-	return countryList
+	return result
+}
+
+func ReadVaccines(path string) []model.Vaccine {
+	rows := util.ReadCSVFile(path)
+	var result []model.Vaccine
+
+	for i, row := range rows {
+		if len(row) < 1 {
+			log.Printf("Linha %d inválida: %+v", i+2, row)
+			continue
+		}
+		result = append(result, model.Vaccine{Name: row[0]})
+	}
+	return result
+}
+
+func ReadCovidCases(path string) []model.CovidCase {
+	rows := util.ReadCSVFile(path)
+	var result []model.CovidCase
+
+	for i, row := range rows {
+		if len(row) < 4 {
+			log.Printf("Linha %d inválida: %+v", i+2, row)
+			continue
+		}
+		date, err := util.ParseDate(row[1])
+		if err != nil {
+			log.Printf("Erro parseando data na linha %d: %v", i+2, err)
+			continue
+		}
+		cases, _ := strconv.Atoi(row[2])
+		deaths, _ := strconv.Atoi(row[3])
+		result = append(result, model.CovidCase{
+			ISO3:        row[0],
+			Date:        date,
+			TotalCases:  cases,
+			TotalDeaths: deaths,
+		})
+	}
+	return result
+}
+
+func ReadVaccinations(path string) []model.VaccinationStat {
+	rows := util.ReadCSVFile(path)
+	var result []model.VaccinationStat
+
+	for i, row := range rows {
+		if len(row) < 3 {
+			log.Printf("Linha %d inválida: %+v", i+2, row)
+			continue
+		}
+		date, err := util.ParseDate(row[1])
+		if err != nil {
+			log.Printf("Erro parseando data na linha %d: %v", i+2, err)
+			continue
+		}
+		total, _ := strconv.Atoi(row[2])
+		result = append(result, model.VaccinationStat{
+			ISO3:            row[0],
+			Date:            date,
+			TotalVaccinated: total,
+		})
+	}
+	return result
+}
+
+func ReadVaccineApprovals(path string) []model.VaccineApproval {
+	rows := util.ReadCSVFile(path)
+	var result []model.VaccineApproval
+
+	for i, row := range rows {
+		if len(row) < 2 {
+			log.Printf("Linha %d inválida: %+v", i+2, row)
+			continue
+		}
+		date, err := util.ParseDate(row[1])
+		if err != nil {
+			log.Printf("Erro parseando data na linha %d: %v", i+2, err)
+			continue
+		}
+		result = append(result, model.VaccineApproval{
+			VaccineName: row[0],
+			Date:        date,
+		})
+	}
+	return result
+}
+
+func ReadCountryVaccines(path string) []model.CountryVaccine {
+	rows := util.ReadCSVFile(path)
+	var result []model.CountryVaccine
+
+	for i, row := range rows {
+		if len(row) < 2 {
+			log.Printf("Linha %d inválida: %+v", i+2, row)
+			continue
+		}
+		result = append(result, model.CountryVaccine{
+			ISO3:        row[0],
+			VaccineName: row[1],
+		})
+	}
+	return result
 }

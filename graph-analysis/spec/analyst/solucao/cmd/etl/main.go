@@ -11,10 +11,28 @@ func main() {
 	cfg := config.LoadEnv()
 	fmt.Printf("Conectando ao Neo4j em: %s\n", cfg.URI)
 
-	// Aqui você pode adicionar a lógica de ETL, como ler arquivos CSV, transformar dados e carregar no Neo4j
-	// Exemplo de leitura de um arquivo CSV
-	fmt.Println(cfg.CountriesPath)
-	countries := reader.ReadeCountries(cfg.CountriesPath + "/countries.csv")
-	fmt.Printf("Total de países lidos: %d\n", len(countries))
+	// Países
+	countries := reader.ReadCountries(cfg.CountriesPath + "/countries.csv")
+	fmt.Printf(" Países carregados: %d\n", len(countries))
+
+	// Vacinas
+	vaccines := reader.ReadVaccines(cfg.CountriesPath + "/vaccines.csv")
+	fmt.Printf(" Vacinas carregadas: %d\n", len(vaccines))
+
+	// Casos de Covid
+	cases := reader.ReadCovidCases(cfg.CountriesPath + "/covid_cases.csv")
+	fmt.Printf(" Casos de Covid carregados: %d\n", len(cases))
+
+	// Vacinações
+	vaccs := reader.ReadVaccinations(cfg.CountriesPath + "/vaccinations.csv")
+	fmt.Printf(" Estatísticas de vacinação carregadas: %d\n", len(vaccs))
+
+	// Aprovações
+	approvals := reader.ReadVaccineApprovals(cfg.CountriesPath + "/vaccine_approvals.csv")
+	fmt.Printf(" Aprovações de vacinas carregadas: %d\n", len(approvals))
+
+	// Relacionamentos País-Vacina
+	relations := reader.ReadCountryVaccines(cfg.CountriesPath + "/country_vaccines.csv")
+	fmt.Printf(" Relações país-vacina carregadas: %d\n", len(relations))
 
 }
