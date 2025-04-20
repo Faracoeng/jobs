@@ -3,10 +3,36 @@ package main
 import (
 	"fmt"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/config"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/reader"
 )
 
 func main() {
 	fmt.Println("Iniciando processo de ETL...")
 	cfg := config.LoadEnv()
 	fmt.Printf("Conectando ao Neo4j em: %s\n", cfg.URI)
+
+	// Países
+	countries := reader.ReadCountries(cfg.CountriesPath + "/countries.csv")
+	fmt.Printf(" Países carregados: %d\n", len(countries))
+
+	// Vacinas
+	vaccines := reader.ReadVaccines(cfg.CountriesPath + "/vaccines.csv")
+	fmt.Printf(" Vacinas carregadas: %d\n", len(vaccines))
+
+	// Casos de Covid
+	cases := reader.ReadCovidCases(cfg.CountriesPath + "/covid_cases.csv")
+	fmt.Printf(" Casos de Covid carregados: %d\n", len(cases))
+
+	// Vacinações
+	vaccs := reader.ReadVaccinations(cfg.CountriesPath + "/vaccinations.csv")
+	fmt.Printf(" Estatísticas de vacinação carregadas: %d\n", len(vaccs))
+
+	// Aprovações
+	approvals := reader.ReadVaccineApprovals(cfg.CountriesPath + "/vaccine_approvals.csv")
+	fmt.Printf(" Aprovações de vacinas carregadas: %d\n", len(approvals))
+
+	// Relacionamentos País-Vacina
+	relations := reader.ReadCountryVaccines(cfg.CountriesPath + "/country_vaccines.csv")
+	fmt.Printf(" Relações país-vacina carregadas: %d\n", len(relations))
+
 }
