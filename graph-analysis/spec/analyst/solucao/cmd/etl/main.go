@@ -51,12 +51,14 @@ func main() {
 	fmt.Printf(" Relações país-vacina carregadas: %d\n", len(relations))
 
 
-
 	loader := loader.NewNeo4jLoader(driver)
 	fmt.Println("Carregando dados no Neo4j...")
 	loader.LoadCountries(ctx, countries)
 
 	fmt.Println("Carregando dados de vacinas no Neo4j...")
 	loader.LoadVaccines(ctx, vaccines)
+	fmt.Println("Carregando dados de aprovações de vacinas no Neo4j...")
+	loader.LoadVaccineApprovals(ctx, approvals)
+
 
 }
