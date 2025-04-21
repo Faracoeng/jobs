@@ -63,4 +63,8 @@ func main() {
 	fmt.Println("Carregando dados de casos de Covid no Neo4j...")
 	loader.LoadCovidCases(ctx, cases)
 
+	fmt.Println("Carregando dados de vacinação no Neo4j...")
+	loader.LoadVaccinationStats(ctx, vaccs)
+
+
 }
