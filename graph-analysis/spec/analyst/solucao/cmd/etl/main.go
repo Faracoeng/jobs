@@ -52,19 +52,18 @@ func main() {
 
 
 	loader := loader.NewNeo4jLoader(driver)
+	loader.CreateConstraints(ctx)
 	fmt.Println("Carregando dados no Neo4j...")
+	// Inserção dos nós
 	loader.LoadCountries(ctx, countries)
-
-	fmt.Println("Carregando dados de vacinas no Neo4j...")
 	loader.LoadVaccines(ctx, vaccines)
-	fmt.Println("Carregando dados de aprovações de vacinas no Neo4j...")
+	loader.LoadCovidCases(ctx, cases)
+	loader.LoadVaccinationStats(ctx, vaccs)
 	loader.LoadVaccineApprovals(ctx, approvals)
 
-	fmt.Println("Carregando dados de casos de Covid no Neo4j...")
-	loader.LoadCovidCases(ctx, cases)
+	// Inserção dos relacionamentos
+	loader.LinkVaccineApprovals(ctx, approvals)
+	loader.LinkCountryVaccines(ctx, relations)
 
-	fmt.Println("Carregando dados de vacinação no Neo4j...")
-	loader.LoadVaccinationStats(ctx, vaccs)
-
-
+	fmt.Println("Carga completa no Neo4j finalizada com sucesso.")
 }
