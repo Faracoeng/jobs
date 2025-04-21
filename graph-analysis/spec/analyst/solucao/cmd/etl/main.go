@@ -2,14 +2,29 @@ package main
 
 import (
 	"fmt"
+	"context"
+	"log"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/config"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/reader"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/loader"
 )
 
 func main() {
 	fmt.Println("Iniciando processo de ETL...")
+
 	cfg := config.LoadEnv()
-	fmt.Printf("Conectando ao Neo4j em: %s\n", cfg.URI)
+	
+	ctx := context.Background()
+
+	driver, err := loader.NewNeo4jDriver(ctx, cfg)
+		if err != nil {
+			log.Fatalf("Erro de conexão com Neo4j: %v", err)
+	}
+
+	defer driver.Close(ctx)
+
+
+	fmt.Printf("Conectado ao Neo4j em: %s\n", cfg.URI)
 
 	// Países
 	countries := reader.ReadCountries(cfg.CountriesPath + "/countries.csv")
