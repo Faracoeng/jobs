@@ -56,6 +56,7 @@ func main() {
 	fmt.Println("Carregando dados no Neo4j...")
 	loader.LoadCountries(ctx, countries)
 
-
+	fmt.Println("Carregando dados de vacinas no Neo4j...")
+	loader.LoadVaccines(ctx, vaccines)
 
 }
