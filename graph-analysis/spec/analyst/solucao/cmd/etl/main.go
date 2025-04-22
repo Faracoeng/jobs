@@ -1,69 +1,55 @@
 package main
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"log"
+
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/config"
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/reader"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/loader"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/reader"
+	repo "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/repository/neo4j"
 )
 
 func main() {
 	fmt.Println("Iniciando processo de ETL...")
 
 	cfg := config.LoadEnv()
-	
 	ctx := context.Background()
 
-	driver, err := loader.NewNeo4jDriver(ctx, cfg)
-		if err != nil {
-			log.Fatalf("Erro de conexão com Neo4j: %v", err)
+	// Conexão compartilhada com Neo4j (utilizada também na API)
+	driver, err := repo.GetDriver(ctx, cfg.URI, cfg.Username, cfg.Password)
+	if err != nil {
+		log.Fatalf("Erro de conexão com Neo4j: %v", err)
 	}
-
 	defer driver.Close(ctx)
 
+	neoLoader := loader.NewNeo4jLoader(driver)
 
-	fmt.Printf("Conectado ao Neo4j em: %s\n", cfg.URI)
-
-	// Países
+	// Leitura dos dados
 	countries := reader.ReadCountries(cfg.CountriesPath + "/countries.csv")
-	fmt.Printf(" Países carregados: %d\n", len(countries))
-
-	// Vacinas
 	vaccines := reader.ReadVaccines(cfg.CountriesPath + "/vaccines.csv")
-	fmt.Printf(" Vacinas carregadas: %d\n", len(vaccines))
-
-	// Casos de Covid
 	cases := reader.ReadCovidCases(cfg.CountriesPath + "/covid_cases.csv")
-	fmt.Printf(" Casos de Covid carregados: %d\n", len(cases))
-
-	// Vacinações
 	vaccs := reader.ReadVaccinations(cfg.CountriesPath + "/vaccinations.csv")
-	fmt.Printf(" Estatísticas de vacinação carregadas: %d\n", len(vaccs))
-
-	// Aprovações
 	approvals := reader.ReadVaccineApprovals(cfg.CountriesPath + "/vaccine_approvals.csv")
-	fmt.Printf(" Aprovações de vacinas carregadas: %d\n", len(approvals))
-
-	// Relacionamentos País-Vacina
 	relations := reader.ReadCountryVaccines(cfg.CountriesPath + "/country_vaccines.csv")
-	fmt.Printf(" Relações país-vacina carregadas: %d\n", len(relations))
 
+	fmt.Printf("Países: %d | Vacinas: %d | Casos: %d | Vacinações: %d | Aprovações: %d | Relações: %d\n",
+		len(countries), len(vaccines), len(cases), len(vaccs), len(approvals), len(relations))
 
-	loader := loader.NewNeo4jLoader(driver)
-	loader.CreateConstraints(ctx)
-	fmt.Println("Carregando dados no Neo4j...")
-	// Inserção dos nós
-	loader.LoadCountries(ctx, countries)
-	loader.LoadVaccines(ctx, vaccines)
-	loader.LoadCovidCases(ctx, cases)
-	loader.LoadVaccinationStats(ctx, vaccs)
-	loader.LoadVaccineApprovals(ctx, approvals)
+	// Constraints
+	neoLoader.CreateConstraints(ctx)
 
-	// Inserção dos relacionamentos
-	loader.LinkVaccineApprovals(ctx, approvals)
-	loader.LinkCountryVaccines(ctx, relations)
+	// Inserção de nós
+	neoLoader.LoadCountries(ctx, countries)
+	neoLoader.LoadVaccines(ctx, vaccines)
+	neoLoader.LoadCovidCases(ctx, cases)
+	neoLoader.LoadVaccinationStats(ctx, vaccs)
+	neoLoader.LoadVaccineApprovals(ctx, approvals)
 
-	fmt.Println("Carga completa no Neo4j finalizada com sucesso.")
+	// Inserção de relacionamentos
+	neoLoader.LinkVaccineApprovals(ctx, approvals)
+	neoLoader.LinkCountryVaccines(ctx, relations)
+
+	fmt.Println("Carga no Neo4j finalizada com sucesso.")
 }
