@@ -18,7 +18,18 @@ type CovidStatsResponse struct {
 	TotalCases  int `json:"total_cases"`
 	TotalDeaths int `json:"total_deaths"`
 }
-
+// GetCovidStats retorna o total de casos e mortes em uma data e país específicos
+// @Summary Total de casos e mortes
+// @Description Retorna o total acumulado de casos e mortes por COVID-19 em um país e data específicos
+// @Tags covid
+// @Accept json
+// @Produce json
+// @Param iso3 query string true "Código ISO3 do país"
+// @Param date query string true "Data no formato YYYY-MM-DD"
+// @Success 200 {object} CovidStatsResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /covid-stats [get]
 func (h *CovidHandler) GetCovidStats(c *gin.Context) {
 	iso3 := c.Query("iso3")
 	date := c.Query("date")

@@ -5,6 +5,8 @@ import (
 	repoNeo4j "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/repository/neo4j"
 	"github.com/gin-gonic/gin"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	ginSwagger "github.com/swaggo/gin-swagger"
+    swaggerFiles "github.com/swaggo/files"
 )
 
 func SetupRouter(driver neo4j.DriverWithContext) *gin.Engine {
@@ -33,7 +35,8 @@ func SetupRouter(driver neo4j.DriverWithContext) *gin.Engine {
 	r.GET("/countries-by-vaccine", vaccineHandler.GetCountriesByVaccine)
 
 
-
+	// adicionar rota para swagger
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	return r
 }

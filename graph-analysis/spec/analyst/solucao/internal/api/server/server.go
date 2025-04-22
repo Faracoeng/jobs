@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/api/routes"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/config"
@@ -13,8 +14,15 @@ type Server struct {
 	router *gin.Engine
 }
 
-func NewServer() *Server {
+func getCFG() *config.Config {
 	cfg := config.LoadEnv()
+
+	return cfg
+
+}
+
+func NewServer() *Server {
+	cfg := getCFG()
 	ctx := context.Background()
 
 	driver, err := neo4j.GetDriver(ctx, cfg.URI, cfg.Username, cfg.Password)
@@ -27,5 +35,7 @@ func NewServer() *Server {
 }
 
 func (s *Server) Run() error {
-	return s.router.Run(":8080")
+	cfg := getCFG()
+	return s.router.Run(fmt.Sprintf("%s:%s", cfg.APIHost, cfg.APIPort))
+
 }
