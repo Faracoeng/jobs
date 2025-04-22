@@ -9,3 +9,7 @@ type CovidRepository interface {
 type VaccinationRepository interface {
 	FetchVaccinated(iso3 string, date string) (int, error)
 }
+
+type VaccineRepository interface {
+	GetVaccinesByCountry(iso3 string) ([]string, error)
+}
