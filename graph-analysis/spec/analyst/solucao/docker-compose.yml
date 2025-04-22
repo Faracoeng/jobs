@@ -22,7 +22,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: build/Dockerfile.api
+      dockerfile: docker-build/Dockerfile.api
     env_file:
       - .env
     ports:
@@ -40,7 +40,7 @@ services:
   etl:
     build:
       context: .
-      dockerfile: build/Dockerfile.etl
+      dockerfile: docker-build/Dockerfile.etl
     env_file:
       - .env
     volumes:
@@ -53,7 +53,7 @@ services:
   csv-generator:
     build:
       context: .
-      dockerfile: build/Dockerfile.generator
+      dockerfile: docker-build/Dockerfile.generator
     env_file:
       - .env
     volumes:
