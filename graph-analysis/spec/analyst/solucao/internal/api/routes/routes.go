@@ -29,5 +29,9 @@ func SetupRouter(driver neo4j.DriverWithContext) *gin.Engine {
 	vaccineRepo := repoNeo4j.NewVaccineRepository(driver)
 	vaccineHandler := handler.NewVaccineHandler(vaccineRepo)
 	r.GET("/vaccines", vaccineHandler.GetVaccinesByCountry)
+	r.GET("/approval-dates", vaccineHandler.GetApprovalDates)
+
+
+
 	return r
 }

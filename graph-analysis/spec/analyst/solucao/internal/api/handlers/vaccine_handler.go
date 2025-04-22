@@ -2,12 +2,17 @@ package handler
 
 import (
 	"net/http"
-
 	"github.com/gin-gonic/gin"
+
+
 )
 
 type VaccineHandler struct {
 	repo VaccineRepository
+}
+
+type VaccineApprovalDatesResponse struct {
+	Dates []string `json:"dates"`
 }
 
 func NewVaccineHandler(repo VaccineRepository) *VaccineHandler {
@@ -32,4 +37,27 @@ func (h *VaccineHandler) GetVaccinesByCountry(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, VaccinesResponse{Vaccines: vaccines})
+}
+
+
+func (h *VaccineHandler) GetApprovalDates(c *gin.Context) {
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Parâmetro name é obrigatório"})
+		return
+	}
+
+	dates, err := h.repo.GetApprovalDates(name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar datas de aprovação"})
+		return
+	}
+
+	// Formatar para string
+	var formatted []string
+	for _, d := range dates {
+		formatted = append(formatted, d.Format("2006-01-02"))
+	}
+
+	c.JSON(http.StatusOK, VaccineApprovalDatesResponse{Dates: formatted})
 }
