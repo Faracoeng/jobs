@@ -3,11 +3,12 @@ package util
 import (
 	"bufio"
 	"encoding/csv"
+	"fmt"
 	"log"
 	"os"
 )
 
-// ReadCSVFile lê o conteúdo de um CSV e retorna todas as linhas, ignorando o cabeçalho
+// ReadCSVFile lê o conteúdo de um CSV, ignora o cabeçalho e remove linhas duplicadas
 func ReadCSVFile(path string) [][]string {
 	file, err := os.Open(path)
 	if err != nil {
@@ -26,6 +27,16 @@ func ReadCSVFile(path string) [][]string {
 	if len(lines) <= 1 {
 		return [][]string{}
 	}
-	// Retornar as linhas, ignorando o cabeçalho
-	return lines[1:] 
+
+	seen := make(map[string]bool)
+	var deduped [][]string
+	for _, line := range lines[1:] {
+		// chave baseada na linha completa
+		key := fmt.Sprint(line) 
+		if !seen[key] {
+			seen[key] = true
+			deduped = append(deduped, line)
+		}
+	}
+	return deduped
 }

@@ -11,6 +11,9 @@ type Config struct {
 	Username string
 	Password string
 	CountriesPath string
+	APIHost  string
+	APIPort  string
+	ETL_INTERVAL_SECONDS string
 }
 
 func LoadEnv() *Config {
@@ -24,5 +27,8 @@ func LoadEnv() *Config {
 		Username: os.Getenv("NEO4J_USER"),
 		Password: os.Getenv("NEO4J_PASSWORD"),
 		CountriesPath: os.Getenv("OUTPUT_DIR"),
+		APIHost: os.Getenv("API_HOST"),
+		APIPort: os.Getenv("API_PORT"),
+		ETL_INTERVAL_SECONDS: os.Getenv("ETL_INTERVAL_SECONDS"),
 	}
 }

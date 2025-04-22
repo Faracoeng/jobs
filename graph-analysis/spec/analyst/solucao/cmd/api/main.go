@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/api/server"
 )
 
