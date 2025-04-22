@@ -16,4 +16,5 @@ type VaccinationRepository interface {
 type VaccineRepository interface {
 	GetVaccinesByCountry(iso3 string) ([]string, error)
 	GetApprovalDates(name string) ([]time.Time, error)
+	GetCountriesByVaccine(vaccine string) ([]string, error)
 }

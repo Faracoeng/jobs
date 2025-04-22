@@ -15,6 +15,13 @@ type VaccineApprovalDatesResponse struct {
 	Dates []string `json:"dates"`
 }
 
+type CountryListResponse struct {
+	Countries []string `json:"countries"`
+}
+
+
+
+
 func NewVaccineHandler(repo VaccineRepository) *VaccineHandler {
 	return &VaccineHandler{repo: repo}
 }
@@ -60,4 +67,21 @@ func (h *VaccineHandler) GetApprovalDates(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, VaccineApprovalDatesResponse{Dates: formatted})
+}
+
+
+func (h *VaccineHandler) GetCountriesByVaccine(c *gin.Context) {
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Parâmetro name é obrigatório"})
+		return
+	}
+
+	countries, err := h.repo.GetCountriesByVaccine(name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar países"})
+		return
+	}
+
+	c.JSON(http.StatusOK, CountryListResponse{Countries: countries})
 }
