@@ -1,0 +1,7 @@
+package handler
+
+import "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/model"
+
+type CovidRepository interface {
+	FetchStats(iso3 string, date string) (*model.CovidCase, error)
+}

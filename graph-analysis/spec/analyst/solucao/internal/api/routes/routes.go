@@ -1,17 +1,25 @@
 package routes
 
 import (
-	"net/http"
-
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/api/handlers"
+	repoNeo4j "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/repository/neo4j"
 	"github.com/gin-gonic/gin"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-func SetupRouter() *gin.Engine {
+func SetupRouter(driver neo4j.DriverWithContext) *gin.Engine {
 	r := gin.Default()
 
 	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "pong"})
+		c.JSON(200, gin.H{"message": "pong"})
 	})
+
+	// Repositório e handler
+	covidRepo := repoNeo4j.NewCovidRepository(driver)
+	covidHandler := handler.NewCovidHandler(covidRepo)
+
+	// Endpoint da API
+	r.GET("/covid-stats", covidHandler.GetCovidStats)
 
 	return r
 }
