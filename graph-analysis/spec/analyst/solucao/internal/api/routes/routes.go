@@ -21,5 +21,11 @@ func SetupRouter(driver neo4j.DriverWithContext) *gin.Engine {
 	// Endpoint da API
 	r.GET("/covid-stats", covidHandler.GetCovidStats)
 
+
+	vaccRepo := repoNeo4j.NewVaccinationRepository(driver)
+	vaccHandler := handler.NewVaccinationHandler(vaccRepo)
+	r.GET("/vaccination", vaccHandler.GetVaccinated)
+
+
 	return r
 }

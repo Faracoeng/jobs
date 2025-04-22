@@ -5,3 +5,7 @@ import "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/m
 type CovidRepository interface {
 	FetchStats(iso3 string, date string) (*model.CovidCase, error)
 }
+
+type VaccinationRepository interface {
+	FetchVaccinated(iso3 string, date string) (int, error)
+}
