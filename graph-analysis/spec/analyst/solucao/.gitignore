@@ -8,8 +8,8 @@
 
 # Módulos
 vendor/
-go.sum
-go.mod
+#go.sum
+#go.mod
 
 # Diretório de cache do Go
 Gopkg.lock
