@@ -1,0 +1,5 @@
+FROM python:3.13-slim
+WORKDIR /app
+COPY csv-generator.py .
+RUN pip install schedule
+ENTRYPOINT ["python", "csv-generator.py"]
