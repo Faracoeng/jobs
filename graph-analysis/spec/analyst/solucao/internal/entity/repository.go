@@ -1,12 +1,11 @@
-package handler
+package entity
 
 import (
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/entity"
 	"time"
 )
 
 type CovidRepository interface {
-	FetchStats(iso3 string, date string) (*entity.CovidCase, error)
+	FetchStats(iso3 string, date string) (*CovidCase, error)
 }
 
 type VaccinationRepository interface {

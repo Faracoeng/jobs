@@ -2,11 +2,12 @@ package routes
 
 import (
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/api/handlers"
-	repoNeo4j "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/repository/neo4j"
+	repoNeo4j "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/infra/repository/neo4j"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/usecase/api"
 	"github.com/gin-gonic/gin"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	ginSwagger "github.com/swaggo/gin-swagger"
-    swaggerFiles "github.com/swaggo/files"
+	swaggerFiles "github.com/swaggo/files"
 )
 
 func SetupRouter(driver neo4j.DriverWithContext) *gin.Engine {
@@ -16,11 +17,10 @@ func SetupRouter(driver neo4j.DriverWithContext) *gin.Engine {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
 
-	// Repositório e handler
+	// Criar Repository → UseCase → Handler
 	covidRepo := repoNeo4j.NewCovidRepository(driver)
-	covidHandler := handler.NewCovidHandler(covidRepo)
-
-	// Endpoint da API
+	covidUseCase := usecase.NewGetCovidStatsUseCase(covidRepo)
+	covidHandler := handler.NewCovidHandler(covidUseCase)
 	r.GET("/covid-stats", covidHandler.GetCovidStats)
 
 
