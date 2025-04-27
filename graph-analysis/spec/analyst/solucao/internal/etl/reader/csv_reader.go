@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/entity"
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/util"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/etl/util"
 )
 
 func ReadCountries(path string) []entity.Country {

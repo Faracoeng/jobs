@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/config"
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/loader"
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/reader"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/etl/loader"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/etl/reader"
 	repo "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/infra/db/neo4j"
 )
 
