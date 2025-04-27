@@ -3,11 +3,11 @@ package loader
 import (
 	"context"
 	"log"
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/model"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/entity"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-func (l *Neo4jLoader) LoadVaccinationStats(ctx context.Context, data []model.VaccinationStat) {
+func (l *Neo4jLoader) LoadVaccinationStats(ctx context.Context, data []entity.VaccinationStat) {
 	session := l.driver.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
 

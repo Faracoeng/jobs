@@ -4,20 +4,20 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/model"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/entity"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/util"
 )
 
-func ReadCountries(path string) []model.Country {
+func ReadCountries(path string) []entity.Country {
 	rows := util.ReadCSVFile(path)
-	var result []model.Country
+	var result []entity.Country
 
 	for i, row := range rows {
 		if len(row) < 2 {
 			log.Printf("Linha %d inválida: %+v", i+2, row)
 			continue
 		}
-		result = append(result, model.Country{
+		result = append(result, entity.Country{
 			ISO3: row[0],
 			Name: row[1],
 		})
@@ -25,23 +25,23 @@ func ReadCountries(path string) []model.Country {
 	return result
 }
 
-func ReadVaccines(path string) []model.Vaccine {
+func ReadVaccines(path string) []entity.Vaccine {
 	rows := util.ReadCSVFile(path)
-	var result []model.Vaccine
+	var result []entity.Vaccine
 
 	for i, row := range rows {
 		if len(row) < 1 {
 			log.Printf("Linha %d inválida: %+v", i+2, row)
 			continue
 		}
-		result = append(result, model.Vaccine{Name: row[0]})
+		result = append(result, entity.Vaccine{Name: row[0]})
 	}
 	return result
 }
 
-func ReadCovidCases(path string) []model.CovidCase {
+func ReadCovidCases(path string) []entity.CovidCase {
 	rows := util.ReadCSVFile(path)
-	var result []model.CovidCase
+	var result []entity.CovidCase
 
 	for i, row := range rows {
 		if len(row) < 4 {
@@ -55,7 +55,7 @@ func ReadCovidCases(path string) []model.CovidCase {
 		}
 		cases, _ := strconv.Atoi(row[2])
 		deaths, _ := strconv.Atoi(row[3])
-		result = append(result, model.CovidCase{
+		result = append(result, entity.CovidCase{
 			ISO3:        row[0],
 			Date:        date,
 			TotalCases:  cases,
@@ -65,9 +65,9 @@ func ReadCovidCases(path string) []model.CovidCase {
 	return result
 }
 
-func ReadVaccinations(path string) []model.VaccinationStat {
+func ReadVaccinations(path string) []entity.VaccinationStat {
 	rows := util.ReadCSVFile(path)
-	var result []model.VaccinationStat
+	var result []entity.VaccinationStat
 
 	for i, row := range rows {
 		if len(row) < 3 {
@@ -80,7 +80,7 @@ func ReadVaccinations(path string) []model.VaccinationStat {
 			continue
 		}
 		total, _ := strconv.Atoi(row[2])
-		result = append(result, model.VaccinationStat{
+		result = append(result, entity.VaccinationStat{
 			ISO3:            row[0],
 			Date:            date,
 			TotalVaccinated: total,
@@ -89,9 +89,9 @@ func ReadVaccinations(path string) []model.VaccinationStat {
 	return result
 }
 
-func ReadVaccineApprovals(path string) []model.VaccineApproval {
+func ReadVaccineApprovals(path string) []entity.VaccineApproval {
 	rows := util.ReadCSVFile(path)
-	var result []model.VaccineApproval
+	var result []entity.VaccineApproval
 
 	for i, row := range rows {
 		if len(row) < 2 {
@@ -103,7 +103,7 @@ func ReadVaccineApprovals(path string) []model.VaccineApproval {
 			log.Printf("Erro parseando data na linha %d: %v", i+2, err)
 			continue
 		}
-		result = append(result, model.VaccineApproval{
+		result = append(result, entity.VaccineApproval{
 			VaccineName: row[0],
 			Date:        date,
 		})
@@ -111,16 +111,16 @@ func ReadVaccineApprovals(path string) []model.VaccineApproval {
 	return result
 }
 
-func ReadCountryVaccines(path string) []model.CountryVaccine {
+func ReadCountryVaccines(path string) []entity.CountryVaccine {
 	rows := util.ReadCSVFile(path)
-	var result []model.CountryVaccine
+	var result []entity.CountryVaccine
 
 	for i, row := range rows {
 		if len(row) < 2 {
 			log.Printf("Linha %d inválida: %+v", i+2, row)
 			continue
 		}
-		result = append(result, model.CountryVaccine{
+		result = append(result, entity.CountryVaccine{
 			ISO3:        row[0],
 			VaccineName: row[1],
 		})

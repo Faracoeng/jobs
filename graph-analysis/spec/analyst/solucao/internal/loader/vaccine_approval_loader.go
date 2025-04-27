@@ -4,11 +4,11 @@ import (
 	"context"
 	"log"
 
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/model"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/entity"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-func (l *Neo4jLoader) LoadVaccineApprovals(ctx context.Context, approvals []model.VaccineApproval) {
+func (l *Neo4jLoader) LoadVaccineApprovals(ctx context.Context, approvals []entity.VaccineApproval) {
 	session := l.driver.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
 

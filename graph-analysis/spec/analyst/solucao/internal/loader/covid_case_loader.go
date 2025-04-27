@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/model"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/entity"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-func (l *Neo4jLoader) LoadCovidCases(ctx context.Context, data []model.CovidCase) {
+func (l *Neo4jLoader) LoadCovidCases(ctx context.Context, data []entity.CovidCase) {
 	session := l.driver.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
 
