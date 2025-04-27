@@ -14,7 +14,7 @@ type CovidHandler struct {
 func NewCovidHandler(uc *usecase.GetCovidStatsUseCase) *CovidHandler {
 	return &CovidHandler{usecase: uc}
 }
-
+// Qual foi o total acumulado de casos e mortes de Covid-19 em um país específico em uma data determinada?
 func (h *CovidHandler) GetCovidStats(c *gin.Context) {
 	iso3 := c.Query("iso3")
 	date := c.Query("date")

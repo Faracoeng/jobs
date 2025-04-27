@@ -18,19 +18,32 @@ func SetupRouter(driver neo4j.DriverWithContext) *gin.Engine {
 	})
 
 	// Criar Repository → UseCase → Handler
+
+	// Qual foi o total acumulado de casos e mortes de Covid-19 em um país específico em uma data determinada?
 	covidRepo := repoNeo4j.NewCovidRepository(driver)
 	covidUseCase := usecase.NewGetCovidStatsUseCase(covidRepo)
 	covidHandler := handler.NewCovidHandler(covidUseCase)
 	r.GET("/covid-stats", covidHandler.GetCovidStats)
 
-
+	// Quantas pessoas foram vacinadas com pelo menos uma dose em um determinado país em uma data específica?
 	vaccRepo := repoNeo4j.NewVaccinationRepository(driver)
 	vaccUseCase := usecase.NewGetVaccinatedUseCase(vaccRepo)
 	vaccHandler := handler.NewVaccinationHandler(vaccUseCase)
 	r.GET("/vaccination", vaccHandler.GetVaccinated)
 
+
+
+	// Quais vacinas foram usadas em um país específico?
+	// Em quais datas as vacinas foram autorizadas para uso?
+    // Quais países usaram uma vacina específica?
 	vaccineRepo := repoNeo4j.NewVaccineRepository(driver)
-	vaccineHandler := handler.NewVaccineHandler(vaccineRepo)
+
+	vaccinesByCountryUC := usecase.NewGetVaccinesByCountryUseCase(vaccineRepo)
+	approvalDatesUC := usecase.NewGetApprovalDatesUseCase(vaccineRepo)
+	countriesByVaccineUC := usecase.NewGetCountriesByVaccineUseCase(vaccineRepo)
+	
+	vaccineHandler := handler.NewVaccineHandler(vaccinesByCountryUC, approvalDatesUC, countriesByVaccineUC)
+	
 	r.GET("/vaccines", vaccineHandler.GetVaccinesByCountry)
 	r.GET("/approval-dates", vaccineHandler.GetApprovalDates)
 	r.GET("/countries-by-vaccine", vaccineHandler.GetCountriesByVaccine)

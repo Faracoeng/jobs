@@ -14,7 +14,7 @@ type VaccinationHandler struct {
 func NewVaccinationHandler(uc *usecase.GetVaccinatedUseCase) *VaccinationHandler {
 	return &VaccinationHandler{usecase: uc}
 }
-
+// Quantas pessoas foram vacinadas com pelo menos uma dose em um determinado país em uma data específica?
 func (h *VaccinationHandler) GetVaccinated(c *gin.Context) {
 	iso3 := c.Query("iso3")
 	date := c.Query("date")
