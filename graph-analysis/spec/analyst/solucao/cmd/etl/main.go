@@ -10,7 +10,7 @@ import (
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/config"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/loader"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/reader"
-	repo "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/infra/db"
+	repo "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/infra/db/neo4j"
 )
 
 func main() {
