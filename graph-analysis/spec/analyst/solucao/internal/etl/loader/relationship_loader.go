@@ -19,13 +19,12 @@ func (l *Neo4jLoader) LinkVaccineApprovals(ctx context.Context, approvals []enti
 			MATCH (a:VaccineApproval {vaccine: $vaccine, date: date($date)})
 			MERGE (v)-[:APPROVED_ON]->(a)`
 			params := map[string]interface{}{
-				"vaccine": a.VaccineName,
 				"date":    a.Date.Format("2006-01-02"),
 			}
 			return tx.Run(ctx, query, params)
 		})
 		if err != nil {
-			log.Printf("Erro ao criar relação de aprovação para %s: %v", a.VaccineName, err)
+			log.Printf("Erro ao criar relação de aprovação para %s: %v", err)
 		}
 	}
 }

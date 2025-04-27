@@ -31,7 +31,6 @@ type VaccinationStat struct {
 
 
 type VaccineApproval struct {
-   VaccineName string
    Date        time.Time
 }
 

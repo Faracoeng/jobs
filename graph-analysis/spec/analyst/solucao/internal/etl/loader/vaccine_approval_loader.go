@@ -17,13 +17,12 @@ func (l *Neo4jLoader) LoadVaccineApprovals(ctx context.Context, approvals []enti
 			query := `
 			MERGE (v:VaccineApproval {vaccine: $vaccine, date: date($date)})`
 			params := map[string]interface{}{
-				"vaccine": a.VaccineName,
 				"date":    a.Date.Format("2006-01-02"),
 			}
 			return tx.Run(ctx, query, params)
 		})
 		if err != nil {
-			log.Printf("Erro ao inserir aprovação para %s (%s): %v", a.VaccineName, a.Date.Format("2006-01-02"), err)
+			log.Printf("Erro ao inserir aprovação para %s (%s): %v", a.Date.Format("2006-01-02"), err)
 		}
 	}
 }

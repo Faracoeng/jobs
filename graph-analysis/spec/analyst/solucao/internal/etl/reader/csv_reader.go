@@ -104,7 +104,6 @@ func ReadVaccineApprovals(path string) []entity.VaccineApproval {
 			continue
 		}
 		result = append(result, entity.VaccineApproval{
-			VaccineName: row[0],
 			Date:        date,
 		})
 	}
