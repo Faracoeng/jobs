@@ -4,11 +4,11 @@ package loader
 import (
 	"context"
 	"log"
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/model"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/entity"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-func (l *Neo4jLoader) LinkVaccineApprovals(ctx context.Context, approvals []model.VaccineApproval) {
+func (l *Neo4jLoader) LinkVaccineApprovals(ctx context.Context, approvals []entity.VaccineApproval) {
 	session := l.driver.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
 
@@ -30,7 +30,7 @@ func (l *Neo4jLoader) LinkVaccineApprovals(ctx context.Context, approvals []mode
 	}
 }
 
-func (l *Neo4jLoader) LinkCountryVaccines(ctx context.Context, relations []model.CountryVaccine) {
+func (l *Neo4jLoader) LinkCountryVaccines(ctx context.Context, relations []entity.CountryVaccine) {
 	session := l.driver.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
 

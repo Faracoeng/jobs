@@ -2,44 +2,28 @@ package handler
 
 import (
 	"net/http"
+
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/usecase/api"
 	"github.com/gin-gonic/gin"
-
-
 )
 
 type VaccineHandler struct {
-	repo VaccineRepository
+	getVaccinesByCountryUC    *usecase.GetVaccinesByCountryUseCase
+	getApprovalDatesUC        *usecase.GetApprovalDatesUseCase
+	getCountriesByVaccineUC   *usecase.GetCountriesByVaccineUseCase
 }
 
-type VaccineApprovalDatesResponse struct {
-	Dates []string `json:"dates"`
+func NewVaccineHandler(
+	getVaccinesByCountryUC *usecase.GetVaccinesByCountryUseCase,
+	getApprovalDatesUC *usecase.GetApprovalDatesUseCase,
+	getCountriesByVaccineUC *usecase.GetCountriesByVaccineUseCase,
+) *VaccineHandler {
+	return &VaccineHandler{
+		getVaccinesByCountryUC:    getVaccinesByCountryUC,
+		getApprovalDatesUC:        getApprovalDatesUC,
+		getCountriesByVaccineUC:   getCountriesByVaccineUC,
+	}
 }
-
-type CountryListResponse struct {
-	Countries []string `json:"countries"`
-}
-
-
-
-
-func NewVaccineHandler(repo VaccineRepository) *VaccineHandler {
-	return &VaccineHandler{repo: repo}
-}
-
-type VaccinesResponse struct {
-	Vaccines []string `json:"vaccines"`
-}
-// GetVaccinesByCountry retorna vacinas aplicadas em um país específico
-// @Summary Vacinas por país
-// @Description Retorna a lista de vacinas aplicadas em um país (por código ISO3)
-// @Tags vaccines
-// @Accept json
-// @Produce json
-// @Param iso3 query string true "Código do país (ISO3)"
-// @Success 200 {object} VaccinesResponse
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /vaccines [get]
 
 func (h *VaccineHandler) GetVaccinesByCountry(c *gin.Context) {
 	iso3 := c.Query("iso3")
@@ -48,26 +32,15 @@ func (h *VaccineHandler) GetVaccinesByCountry(c *gin.Context) {
 		return
 	}
 
-	vaccines, err := h.repo.GetVaccinesByCountry(iso3)
+	input := usecase.GetVaccinesByCountryInputDTO{ISO3: iso3}
+	result, err := h.getVaccinesByCountryUC.Execute(input)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar vacinas"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, VaccinesResponse{Vaccines: vaccines})
+	c.JSON(http.StatusOK, result)
 }
-// GetApprovalDates retorna as datas de aprovação de uma vacina
-// @Summary Datas de aprovação
-// @Description Lista de datas em que uma vacina foi aprovada para uso
-// @Tags vaccines
-// @Accept json
-// @Produce json
-// @Param name query string true "Nome da vacina"
-// @Success 200 {object} VaccineApprovalDatesResponse
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /approval-dates [get]
-
 
 func (h *VaccineHandler) GetApprovalDates(c *gin.Context) {
 	name := c.Query("name")
@@ -76,32 +49,15 @@ func (h *VaccineHandler) GetApprovalDates(c *gin.Context) {
 		return
 	}
 
-	dates, err := h.repo.GetApprovalDates(name)
+	input := usecase.GetApprovalDatesInputDTO{VaccineName: name}
+	result, err := h.getApprovalDatesUC.Execute(input)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar datas de aprovação"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Formatar para string
-	var formatted []string
-	for _, d := range dates {
-		formatted = append(formatted, d.Format("2006-01-02"))
-	}
-
-	c.JSON(http.StatusOK, VaccineApprovalDatesResponse{Dates: formatted})
+	c.JSON(http.StatusOK, result)
 }
-// GetCountriesByVaccine retorna países que aprovaram uma vacina
-// @Summary Países por vacina
-// @Description Retorna os países onde uma vacina foi aprovada para uso
-// @Tags vaccines
-// @Accept json
-// @Produce json
-// @Param name query string true "Nome da vacina"
-// @Success 200 {object} CountryListResponse
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /countries-by-vaccine [get]
-
 
 func (h *VaccineHandler) GetCountriesByVaccine(c *gin.Context) {
 	name := c.Query("name")
@@ -110,11 +66,12 @@ func (h *VaccineHandler) GetCountriesByVaccine(c *gin.Context) {
 		return
 	}
 
-	countries, err := h.repo.GetCountriesByVaccine(name)
+	input := usecase.GetCountriesByVaccineInputDTO{VaccineName: name}
+	result, err := h.getCountriesByVaccineUC.Execute(input)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar países"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, CountryListResponse{Countries: countries})
+	c.JSON(http.StatusOK, result)
 }

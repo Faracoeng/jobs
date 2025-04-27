@@ -7,15 +7,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type VaccinationHandler struct {
-	usecase *usecase.GetVaccinatedUseCase
+type CovidHandler struct {
+	usecase *usecase.GetCovidStatsUseCase
 }
 
-func NewVaccinationHandler(uc *usecase.GetVaccinatedUseCase) *VaccinationHandler {
-	return &VaccinationHandler{usecase: uc}
+func NewCovidHandler(uc *usecase.GetCovidStatsUseCase) *CovidHandler {
+	return &CovidHandler{usecase: uc}
 }
-// Quantas pessoas foram vacinadas com pelo menos uma dose em um determinado país em uma data específica?
-func (h *VaccinationHandler) GetVaccinated(c *gin.Context) {
+// Qual foi o total acumulado de casos e mortes de Covid-19 em um país específico em uma data determinada?
+func (h *CovidHandler) GetCovidStats(c *gin.Context) {
 	iso3 := c.Query("iso3")
 	date := c.Query("date")
 
@@ -24,7 +24,7 @@ func (h *VaccinationHandler) GetVaccinated(c *gin.Context) {
 		return
 	}
 
-	input := usecase.GetVaccinatedInputDTO{
+	input := usecase.GetCovidStatsInputDTO{
 		ISO3: iso3,
 		Date: date,
 	}

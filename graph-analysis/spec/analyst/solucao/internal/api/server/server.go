@@ -6,7 +6,7 @@ import (
 
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/api/routes"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/config"
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/repository/neo4j"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/infra/db/neo4j"
 	"github.com/gin-gonic/gin"
 )
 
@@ -25,7 +25,7 @@ func NewServer() *Server {
 	cfg := getCFG()
 	ctx := context.Background()
 
-	driver, err := neo4j.GetDriver(ctx, cfg.URI, cfg.Username, cfg.Password)
+	driver, err := neo4jdb.GetDriver(ctx, cfg.URI, cfg.Username, cfg.Password)
 	if err != nil {
 		panic("Erro ao conectar ao Neo4j: " + err.Error())
 	}
