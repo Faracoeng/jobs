@@ -1,30 +1,20 @@
 package handler
 
-
 import (
 	"net/http"
+
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/usecase/api"
 	"github.com/gin-gonic/gin"
 )
 
 type VaccinationHandler struct {
-	repo VaccinationRepository
+	usecase *usecase.GetVaccinatedUseCase
 }
 
-func NewVaccinationHandler(repo VaccinationRepository) *VaccinationHandler {
-	return &VaccinationHandler{repo: repo}
+func NewVaccinationHandler(uc *usecase.GetVaccinatedUseCase) *VaccinationHandler {
+	return &VaccinationHandler{usecase: uc}
 }
-// GetVaccinated retorna o total de vacinados por país e data
-// @Summary Total de vacinados
-// @Description Retorna o total de vacinas aplicadas por país e data
-// @Tags vaccination
-// @Accept json
-// @Produce json
-// @Param iso3 query string true "Código ISO3 do país"
-// @Param date query string true "Data no formato YYYY-MM-DD"
-// @Success 200 {object} map[string]int
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /vaccinated [get]
+
 func (h *VaccinationHandler) GetVaccinated(c *gin.Context) {
 	iso3 := c.Query("iso3")
 	date := c.Query("date")
@@ -34,11 +24,16 @@ func (h *VaccinationHandler) GetVaccinated(c *gin.Context) {
 		return
 	}
 
-	total, err := h.repo.FetchVaccinated(iso3, date)
+	input := usecase.GetVaccinatedInputDTO{
+		ISO3: iso3,
+		Date: date,
+	}
+
+	result, err := h.usecase.Execute(input)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar dados de vacinação"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"total_vaccinated": total})
+	c.JSON(http.StatusOK, result)
 }
