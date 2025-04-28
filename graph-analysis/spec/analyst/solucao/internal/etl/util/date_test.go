@@ -4,7 +4,7 @@ import (
     "testing"
     "time"
 
-    "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/util"
+    "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/etl/util"
     "github.com/stretchr/testify/require"
 )
 
