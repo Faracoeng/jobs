@@ -4,12 +4,15 @@ import (
 	"context"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/config"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/etl/loader"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/etl/reader"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/etl/source"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/etl/worker"
 	repo "github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/infra/db/neo4j"
 )
 
@@ -41,26 +44,57 @@ func main() {
 }
 
 func RunETL(ctx context.Context, cfg *config.Config, neoLoader *loader.Neo4jLoader) {
-	countries := reader.ReadCountries(cfg.CountriesPath + "/countries.csv")
-	vaccines := reader.ReadVaccines(cfg.CountriesPath + "/vaccines.csv")
-	cases := reader.ReadCovidCases(cfg.CountriesPath + "/covid_cases.csv")
-	vaccs := reader.ReadVaccinations(cfg.CountriesPath + "/vaccinations.csv")
-	approvals := reader.ReadVaccineApprovals(cfg.CountriesPath + "/vaccine_approvals.csv")
-	relations := reader.ReadCountryVaccines(cfg.CountriesPath + "/country_vaccines.csv")
+	readyFlagPath := filepath.Join(cfg.CountriesPath, "ready.flag")
+	if _, err := os.Stat(readyFlagPath); os.IsNotExist(err) {
+		log.Println("Arquivo 'ready.flag' não encontrado. Pulando execução do ETL.")
+		return
+	}
 
-	log.Printf("Países: %d | Vacinas: %d | Casos: %d | Vacinações: %d | Aprovações: %d | Relações: %d",
-		len(countries), len(vaccines), len(cases), len(vaccs), len(approvals), len(relations))
+	log.Println("Arquivo 'ready.flag' encontrado. Iniciando processamento...")
 
+	log.Println("Criando constraints no Neo4j...")
 	neoLoader.CreateConstraints(ctx)
 
-	neoLoader.LoadCountries(ctx, countries)
-	neoLoader.LoadVaccines(ctx, vaccines)
-	neoLoader.LoadCovidCases(ctx, cases)
-	neoLoader.LoadVaccinationStats(ctx, vaccs)
-	neoLoader.LoadVaccineApprovals(ctx, approvals)
+	log.Println("Processando países...")
+	countrySource := &source.CSVSource{Path: filepath.Join(cfg.CountriesPath, "countries.csv")}
+	countryLines := reader.StreamData(countrySource)
+	worker.ProcessCountries(ctx, countryLines, neoLoader, cfg.ETLBatchSize)
 
-	neoLoader.LinkVaccineApprovals(ctx, approvals)
-	neoLoader.LinkCountryVaccines(ctx, relations)
+	log.Println("Processando vacinas...")
+	vaccineSource := &source.CSVSource{Path: filepath.Join(cfg.CountriesPath, "vaccines.csv")}
+	vaccineLines := reader.StreamData(vaccineSource)
+	worker.ProcessVaccines(ctx, vaccineLines, neoLoader, cfg.ETLBatchSize)
+
+	log.Println("Processando casos de Covid...")
+	caseSource := &source.CSVSource{Path: filepath.Join(cfg.CountriesPath, "covid_cases.csv")}
+	caseLines := reader.StreamData(caseSource)
+	worker.ProcessCovidCases(ctx, caseLines, neoLoader, cfg.ETLBatchSize)
+
+	log.Println("Processando vacinação...")
+	vaccinationSource := &source.CSVSource{Path: filepath.Join(cfg.CountriesPath, "vaccinations.csv")}
+	vaccinationLines := reader.StreamData(vaccinationSource)
+	worker.ProcessVaccinationStats(ctx, vaccinationLines, neoLoader, cfg.ETLBatchSize)
+
+	log.Println("Processando aprovações de vacinas...")
+	approvalSource := &source.CSVSource{Path: filepath.Join(cfg.CountriesPath, "vaccine_approvals.csv")}
+	approvalLines := reader.StreamData(approvalSource)
+	approvals := worker.ProcessVaccineApprovals(ctx, approvalLines, neoLoader, cfg.ETLBatchSize)
+
+	log.Println("Processando relações país-vacina...")
+	relationSource := &source.CSVSource{Path: filepath.Join(cfg.CountriesPath, "country_vaccines.csv")}
+	relationLines := reader.StreamData(relationSource)
+	worker.ProcessCountryVaccines(ctx, relationLines, neoLoader, cfg.ETLBatchSize)
+
+	log.Println("Criando relações entre Vacinas e Aprovações...")
+	neoLoader.LinkVaccinesToApprovals(ctx, approvals, cfg.ETLBatchSize)
 
 	log.Println("Carga concluída com sucesso.")
+
+	// Remove o ready.flag depois da carga
+	err := os.Remove(readyFlagPath)
+	if err != nil {
+		log.Printf("Erro ao remover o arquivo 'ready.flag': %v", err)
+	} else {
+		log.Println("Arquivo 'ready.flag' removido com sucesso após o processamento.")
+	}
 }

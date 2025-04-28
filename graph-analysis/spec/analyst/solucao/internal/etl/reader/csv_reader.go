@@ -6,12 +6,17 @@ import (
 
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/entity"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/etl/util"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/etl/source"
 )
 
-func ReadCountries(path string) []entity.Country {
-	rows := util.ReadCSVFile(path)
-	var result []entity.Country
+func ReadCountries(ds source.DataSource) []entity.Country {
+	rows, err := ds.ReadAll()
+	if err != nil {
+		log.Printf("Erro ao ler countries: %v", err)
+		return nil
+	}
 
+	var result []entity.Country
 	for i, row := range rows {
 		if len(row) < 2 {
 			log.Printf("Linha %d inválida: %+v", i+2, row)
@@ -25,10 +30,14 @@ func ReadCountries(path string) []entity.Country {
 	return result
 }
 
-func ReadVaccines(path string) []entity.Vaccine {
-	rows := util.ReadCSVFile(path)
-	var result []entity.Vaccine
+func ReadVaccines(ds source.DataSource) []entity.Vaccine {
+	rows, err := ds.ReadAll()
+	if err != nil {
+		log.Printf("Erro ao ler vaccines: %v", err)
+		return nil
+	}
 
+	var result []entity.Vaccine
 	for i, row := range rows {
 		if len(row) < 1 {
 			log.Printf("Linha %d inválida: %+v", i+2, row)
@@ -39,10 +48,14 @@ func ReadVaccines(path string) []entity.Vaccine {
 	return result
 }
 
-func ReadCovidCases(path string) []entity.CovidCase {
-	rows := util.ReadCSVFile(path)
-	var result []entity.CovidCase
+func ReadCovidCases(ds source.DataSource) []entity.CovidCase {
+	rows, err := ds.ReadAll()
+	if err != nil {
+		log.Printf("Erro ao ler covid cases: %v", err)
+		return nil
+	}
 
+	var result []entity.CovidCase
 	for i, row := range rows {
 		if len(row) < 4 {
 			log.Printf("Linha %d inválida: %+v", i+2, row)
@@ -65,10 +78,14 @@ func ReadCovidCases(path string) []entity.CovidCase {
 	return result
 }
 
-func ReadVaccinations(path string) []entity.VaccinationStat {
-	rows := util.ReadCSVFile(path)
-	var result []entity.VaccinationStat
+func ReadVaccinations(ds source.DataSource) []entity.VaccinationStat {
+	rows, err := ds.ReadAll()
+	if err != nil {
+		log.Printf("Erro ao ler vaccination stats: %v", err)
+		return nil
+	}
 
+	var result []entity.VaccinationStat
 	for i, row := range rows {
 		if len(row) < 3 {
 			log.Printf("Linha %d inválida: %+v", i+2, row)
@@ -89,8 +106,8 @@ func ReadVaccinations(path string) []entity.VaccinationStat {
 	return result
 }
 
-func ReadVaccineApprovals(path string) []entity.VaccineApproval {
-	rows := util.ReadCSVFile(path)
+func ReadVaccineApprovals(ds source.DataSource) []entity.VaccineApproval {
+	rows, _ := ds.ReadAll()
 	var result []entity.VaccineApproval
 
 	for i, row := range rows {
@@ -104,16 +121,22 @@ func ReadVaccineApprovals(path string) []entity.VaccineApproval {
 			continue
 		}
 		result = append(result, entity.VaccineApproval{
+			VaccineName: row[0],
 			Date:        date,
 		})
 	}
 	return result
 }
 
-func ReadCountryVaccines(path string) []entity.CountryVaccine {
-	rows := util.ReadCSVFile(path)
-	var result []entity.CountryVaccine
 
+func ReadCountryVaccines(ds source.DataSource) []entity.CountryVaccine {
+	rows, err := ds.ReadAll()
+	if err != nil {
+		log.Printf("Erro ao ler country vaccines: %v", err)
+		return nil
+	}
+
+	var result []entity.CountryVaccine
 	for i, row := range rows {
 		if len(row) < 2 {
 			log.Printf("Linha %d inválida: %+v", i+2, row)

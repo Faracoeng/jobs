@@ -25,7 +25,7 @@ func (l *Neo4jLoader) CreateConstraints(ctx context.Context) {
 		 FOR (vs:VaccinationStats) REQUIRE (vs.date, vs.iso3) IS UNIQUE`,
 
 		`CREATE CONSTRAINT vaccine_approval_unique IF NOT EXISTS 
-		 FOR (va:VaccineApproval) REQUIRE (va.vaccine, va.date) IS UNIQUE`,
+		 FOR (va:VaccineApproval) REQUIRE (va.date) IS UNIQUE`,
 	}
 
 	for _, query := range queries {

@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/api/routes"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/config"
 	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/infra/db/neo4j"
