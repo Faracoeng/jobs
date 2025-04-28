@@ -1,725 +1,619 @@
-## Resumo do Projeto
+# Projeto: Graph Analysis - ETL + API + Neo4j
 
-Este repositório apresenta a solução desenvolvida para o teste técnico da Neoway — Pessoa Desenvolvedora de Software Pleno (Graph Analysis). A proposta consiste na implementação de um pipeline completo de ingestão e consulta de dados com foco em análise de grafos utilizando Golang e Neo4j.
+## 1. Introdução
 
-### Objetivos atendidos:
+Este projeto integra um processo de ETL com uma API REST, utilizando o banco de dados de grafos Neo4j. O objetivo é fornecer uma estrutura para análise de dados relacionados à COVID-19, incluindo casos, vacinação e aprovações de vacinas.
 
-- Implementar uma ETL em Golang para leitura contínua de arquivos CSV, transformação e carga no banco de grafos Neo4j.
-- Desenvolver uma API REST com suporte a múltiplos endpoints parametrizáveis que consultam o banco e respondem a perguntas específicas.
-- Containerizar a solução com Docker, incluindo docker-compose e um Makefile com comandos úteis para desenvolvimento e execução.
-- Garantir clareza de estrutura, separação de responsabilidades e justificativas técnicas para cada camada da aplicação (ETL, API, repositórios, etc).
+## 2. Arquitetura Geral
 
-### Decisões técnicas justificadas:
+O projeto adota a arquitetura hexagonal. Essa abordagem promove a separação de preocupações, facilitando a manutenção e a escalabilidade do sistema.
 
-- A arquitetura foi baseada em Clean Architecture com separação por camadas (`handler`, `usecase`, `repository`) para facilitar manutenção, testes e reuso de código.
-- A estratégia de ingestão segue o modelo Medallion (Bronze, Silver, Gold), conforme sugerido no livro *Understanding ETL (O'Reilly, 2024)*, o que facilita rastreabilidade, versionamento e reprocessamento de dados.
-- A conexão com o banco Neo4j foi centralizada em um único client reaproveitável tanto pela API quanto pela ETL.
-- A geração de dados simulados foi feita por um script Python embarcado no mesmo docker-compose, garantindo reprodutibilidade.
+- **Domínio**: Contém as entidades e interfaces que representam as regras de negócio.
+- **Aplicação**: Implementa os casos de uso do sistema.
+- **Infraestrutura**: Fornece implementações concretas para interfaces, como repositórios e serviços externos.
+- **Interfaces de Entrada/Saída**: Incluem a API REST e o processo de ETL.
 
-### O que poderia ser melhorado (fora do escopo por limitação de tempo)
+## 3. ETL
 
-Apesar da estrutura sólida, algumas melhorias que poderiam ser implementadas com mais tempo incluem:
+### 3.1. Descrição Geral
 
-- Paralelização da leitura de arquivos CSV com goroutines:
-  Seria possível utilizar um Worker Pool com channels para paralelizar a leitura e processamento dos arquivos CSV, o que aumentaria a performance da ingestão, principalmente com arquivos grandes ou múltiplos simultâneos.
+O processo de ETL (Extract, Transform, Load) é responsável por extrair dados de arquivos CSV (ou outras fontes futuras), transformá-los em entidades de domínio, e carregá-los no banco de dados Neo4j.  
+Foi desenhado para rodar continuamente e com capacidade de adaptação a novas fontes de dados.
 
-- Melhorias de performance na API:
-  A API poderia utilizar cache em memória (ex: Redis) para respostas que não mudam com frequência, como datas de aprovação de vacinas. Além disso, middlewares como rate limiter e gzip poderiam ser adicionados para ambientes produtivos.
+### 3.2. Fluxo de Execução
 
-- Documentação automática da API com Swagger:
-  A biblioteca `swaggo/swag` permite anotar os handlers em Go com comentários estruturados, e gerar a interface interativa do Swagger UI. Por falta de tempo, a documentação foi feita manualmente no README, mas o projeto já está estruturado para aceitar a integração com `gin-swagger`.
+1. **Leitura dos dados**
+   - Leitura desacoplada via interface `DataSource`.
+   - Atualmente implementado com `CSVSource`, mas preparado para trocar para APIs, bancos de dados, etc.
+   - Opções de leitura:
+     - `ReadAll`: lê todo o conteúdo de uma vez.
+     - `StreamData`: envia linha a linha via canais para processamentos de fluxo.
 
+2. **Transformação**
+   - Cada linha é convertida em uma entidade do domínio (`Country`, `CovidCase`, `VaccinationStat`, `Vaccine`, `CountryVaccine`, `VaccineApproval`).
+   - Datas são parseadas de forma robusta com a função `ParseDate`, aceitando diferentes formatos.
 
+3. **Carga**
+   - Utiliza transações em lote (`batch`) para inserir no Neo4j.
+   - Utiliza o comando `MERGE` para garantir idempotência e evitar duplicações.
 
-## Arquitetura da Solução
+4. **Controle de Ciclo**
+   - O ETL aguarda o surgimento do arquivo `ready.flag` antes de processar.
+   - Após o processamento, o `ready.flag` é removido para evitar reprocessamentos.
+   - O ciclo de execução é repetido conforme `ETL_INTERVAL_SECONDS`.
 
-A estrutura do projeto foi dividida em três componentes principais:
+### 3.3. Estratégias de Eficiência
 
-- `csv-generator`: simula dumps de bancos relacionais gerando CSVs.
-- `etl`: processo contínuo de leitura, transformação e carga no grafo.
-- `api`: serviço REST com consultas ao banco.
+- **Arquitetura de fonte genérica (`DataSource`)**
+  - Permite que o ETL troque a origem dos dados sem impactar o core da aplicação.
 
-### Organização Geral
+- **Batch e transações controladas**
+  - Dados são agrupados em lotes de tamanho configurável (`ETL_BATCH_SIZE`), otimizando performance no Neo4j.
 
-```
-.
-├── cmd/
-│   ├── api/               # Entrada principal da API REST
-│   └── etl/               # Entrada principal da ETL contínua
-├── internal/
-│   ├── api/               # Handlers HTTP e roteamento
-│   ├── config/            # Leitura de variáveis de ambiente
-│   ├── loader/            # Lógica de escrita no Neo4j (Gold Layer)
-│   ├── model/             # Definição das entidades
-│   ├── reader/            # Leitura e parsing dos arquivos CSV (Silver Layer)
-│   ├── repository/        # Conexão com banco (Neo4j client reutilizável)
-│   ├── usecase/           # Lógica de negócio da API
-│   └── util/              # Funções auxiliares (ex: parse de datas)
-├── data/                  # Diretório onde os CSVs simulados são gerados
-├── docker/                # Dockerfiles e configs
-├── scripts/               # Gerador de CSVs em Python (simulando dumps SQL)
-├── .env                   # Variáveis de ambiente
-├── docker-compose.yml
-└── Makefile
-```
+- **Stream de dados**
+  - O módulo `StreamData` possibilita processamento linha a linha sob demanda, facilitando futuras implementações com alto volume ou pipelines assíncronos.
 
-### Estratégia de Dados: Arquitetura Medallion
+- **Separação de loaders**
+  - Cada tipo de dado tem um loader independente, favorecendo paralelismo e manutenção isolada.
 
-A arquitetura segue o modelo Medallion (Bronze, Silver, Gold), conforme descrito no livro *Understanding ETL (O’Reilly, 2024)*:
+- **Criação automática de constraints**
+  - Constraints de unicidade são criadas no Neo4j antes da carga, garantindo integridade.
 
-- **Bronze**: dados brutos gerados continuamente por um componente simulado chamado `csv-generator`, implementado em Python. Os dados são escritos em arquivos `.csv` com timestamps distintos.
-- **Silver**: leitura e parsing dos dados, validação de tipos e padronização (ex: conversão de datas com `time.Parse`, nomes de países e vacinas, valores nulos como ponteiros).
-- **Gold**: carga no banco de grafos Neo4j com garantias de unicidade (`MERGE`, constraints), relacionamentos entre entidades e modelagem orientada a queries analíticas.
+- **Leitura deduplicada**
+  - A função `ReadCSVFile` remove duplicações antes do processamento, reduzindo conflitos de chave.
 
-### Decisões de Modelagem
+### 3.4. Decisões Técnicas Importantes
 
-Optou-se por usar **chaves de negócio** (ex: `iso3`, `name`, `date`) no lugar de IDs artificiais, pois são mais expressivas e já atendem os requisitos das queries do desafio. Isso facilita o uso de `MERGE` e evita duplicidade.
+- **Interface `DataSource`**
+  - Criada para desacoplar a leitura dos dados da origem (ex: CSV → API → Banco → etc).
+  - Atual implementação: `CSVSource`, que lê via utilitário `ReadCSVFile`.
 
-| Entidade           | ID fornecido | Chave usada no grafo | Justificativa técnica                         |
-|--------------------|--------------|-----------------------|-----------------------------------------------|
-| Country            | id           | iso3                  | É único por país e usado nas queries          |
-| Vaccine            | id           | name                  | Nome é suficiente e referenciado diretamente |
-| CovidCase          | id           | date                  | Unicidade por país + data                     |
-| VaccinationStats   | id           | date                  | Igual ao anterior                             |
-| VaccineApproval    | id           | vaccine               | Nome da vacina já é suficiente                |
+- **Uso de `MERGE` no Neo4j**
+  - Escolhido para suportar reprocessamentos sem gerar inconsistências ou dados duplicados.
 
+- **Separação de nós e relacionamentos**
+  - Primeiramente são inseridos os nós (`Country`, `Vaccine`, `CovidCase`, etc), e depois os relacionamentos (`HAS_CASE`, `USES`, `APPROVED_ON`, `VACCINATED_ON`).
 
+- **Uso de canais em `StreamData`**
+  - Permite futuras melhorias como consumo paralelo, throttling, backpressure ou processamento progressivo em fluxos muito grandes.
 
+- **Remoção de redundâncias**
+  - Exemplo: campo redundante `vaccine` foi removido da entidade `VaccineApproval`, deixando a relação explícita somente no grafo.
 
+- **Pronto para mudanças futuras**
+  - O design modularizado permite trocar facilmente a fonte dos dados ou escalar o paralelismo do ETL sem reescrever o core.
 
-### Reuso de Componentes
+### 3.5. Fluxo de Execução do ETL
 
-A conexão com o banco Neo4j foi encapsulada em um client reutilizável (`internal/repository/neo4j/client.go`), utilizado tanto pela API quanto pela ETL. Isso evita duplicação de código e facilita manutenção.
+``` text
+1. Gerador de CSVs:
+   - Cria os arquivos de dados (`countries.csv`, `covid_cases.csv`, etc.).
+   - Gera o arquivo `ready.flag` sinalizando que os dados estão prontos.
 
-### Observações sobre Escalabilidade
+2. Detecção do arquivo ready.flag:
+   - O ETL monitora continuamente a existência do `ready.flag` no diretório de dados.
 
-A arquitetura atual permite evoluções como:
+3. Leitura da fonte de dados:
+   - Cada arquivo CSV é lido utilizando abstrações de DataSource (`CSVSource`).
+   - Leitura em memória ou via streaming de dados linha a linha.
 
-- Substituir a origem dos dados (CSV) por bancos relacionais, APIs ou filas, com mudanças mínimas no pacote `reader/`.
-- Trocar o destino do grafo Neo4j por outro banco, alterando apenas o repositório.
-- Paralelizar leitura e escrita com goroutines (não implementado por limitação de tempo).
-- Criar múltiplas instâncias do ETL ou da API para suportar carga horizontal.
-
-## Tratamento dos Dados Lidos
-
-Durante a leitura dos CSVs, são aplicadas as seguintes validações e transformações:
-
-- Conversão de datas com `time.Parse`, rejeitando valores inválidos.
-- Campos nulos tratados com ponteiros (`*int`, `*string`).
-- Validação de headers esperados.
-- Ignora registros incompletos ou duplicados.
-
-O tratamento de datas é especialmente importante para garantir consistência ao carregar informações temporais no grafo. Futuramente podem ser adicionadas:
-
-- Validações de ranges temporais.
-- Verificação de colunas obrigatórias por tipo de entidade.
-- Normalização de nomes com equivalência semântica (ex: EUA, United States).
-
-## Estrutura dos Arquivos CSV
-
-Durante a entrevista técnica foi mencionado que, na prática, os dados da Neoway são frequentemente extraídos de sistemas relacionais (bancos SQL) e disponibilizados para processamento no formato CSV. A partir dessa informação, a geração dos dados deste projeto foi planejada para **simular dumps reais de bancos relacionais**, respeitando formatos, periodicidade e estruturas comuns a esse tipo de ambiente.
-
-### Motivação
-
-Ao invés de usar um único arquivo estático de entrada, foi criado um componente chamado `csv-generator`, que gera novos arquivos CSV periodicamente. Isso simula o comportamento de um sistema ETL upstream exportando dados continuamente, como ocorre em pipelines reais de produção.
-
-Essa estratégia permite:
-
-- Testar o comportamento do ETL de forma contínua e realista.
-- Validar a resiliência do sistema a novos dados chegando em ciclos.
-- Simular casos de versionamento de dumps (por data ou timestamp).
-
-### Características da Estrutura
-
-Os arquivos CSV seguem uma estrutura próxima à de tabelas normalizadas de bancos relacionais. Cada entidade foi separada em um arquivo distinto, com colunas bem definidas e compatíveis com as estruturas usadas na modelagem de grafos.
-
-Exemplos:
-
-#### `countries.csv`
-
-```csv
-id,name,iso3
-1,Brazil,BRA
-2,Germany,DEU
-3,United States,USA
-```
-
-Simula a tabela `countries(id, name, iso3)` em bancos relacionais.
-
-#### `covid_cases.csv`
-
-```csv
-id,country_iso3,date,total_cases,total_deaths
-1,BRA,2021-01-01,1000000,30000
-2,BRA,2021-02-01,1500000,45000
-3,DEU,2021-01-01,500000,10000
-```
-
-Simula a tabela `covid_cases(country_id, date, total_cases, total_deaths)` com a chave estrangeira substituída por `iso3` para facilitar ingestão direta no Neo4j via `MERGE`.
-
-#### `vaccinations.csv`
-
-```csv
-id,country_iso3,date,people_vaccinated
-1,BRA,2021-01-10,500000
-2,BRA,2021-02-10,1000000
-3,DEU,2021-01-10,200000
-```
-
-#### `vaccines.csv`
-
-```csv
-id,name
-1,Moderna
-2,Pfizer-BioNTech
-3,AstraZeneca
-```
-
-#### `country_vaccines.csv`
-
-```csv
-country_iso3,vaccine_name
-BRA,Moderna
-BRA,AstraZeneca
-USA,Pfizer-BioNTech
-```
-
-Simula uma tabela associativa (n:n) entre país e vacina.
-
-#### `vaccine_approvals.csv`
-
-```csv
-vaccine_name,approval_date
-Moderna,2020-12-18
-Pfizer-BioNTech,2020-12-11
-AstraZeneca,2021-01-29
-```
-
-### Comportamento Realista
-
-- Os arquivos são gerados com nomes distintos por timestamp (`cases_20240422_1500.csv`, etc.), simulando dumps versionados.
-- A periodicidade é configurável via variável de ambiente: `GENERATOR_INTERVAL_MINUTES=5`
-- O volume também é configurável: `GENERATOR_COUNTRY_COUNT=3`, `GENERATOR_CASES_PER_COUNTRY=10`
-- O diretório `/data` é compartilhado entre o gerador e o ETL via volume Docker.
-
-### Integração com o ETL
-
-A ETL foi construída para:
-
-- Processar múltiplos arquivos por entidade.
-- Validar headers e campos esperados.
-- Tolerar variações simples no conteúdo (linhas duplicadas, campos nulos).
-- Eliminar duplicidade via uso de `MERGE` e `CREATE CONSTRAINT` no Neo4j.
-
-### Justificativa
-
-Essa estrutura foi desenhada intencionalmente para manter **coerência com dumps de bases SQL normalizadas**, e facilitar evolução futura do projeto, onde os CSVs poderiam ser substituídos por:
-
-- Conexão direta com bancos relacionais (MySQL, PostgreSQL)
-- Leitura via APIs internas da empresa
-- Ingestão por mensageria (ex: Kafka ou SQS)
-
-O uso de arquivos CSV com separação clara por entidade também permite reuso de código e modularização no pacote `reader/`.
-
-
-
-
-## Fluxo de Execução Geral
-
-1. O script Python `csv-generator.py` escreve arquivos CSV no diretório `data/`, simulando dumps periódicos.
-2. O processo `cmd/etl/main.go` roda continuamente, lendo os arquivos e carregando os dados no Neo4j.
-3. A API (em `cmd/api/main.go`) expõe endpoints que consultam o banco para responder às perguntas do desafio.
-
-*Nota: por limitação de tempo, não foi incluído um diagrama de execução. Pretendo incluir isso futuramente na branch de melhorias.*
-
-## Problema: Erro ao iniciar o Neo4j - `UnsupportedLogVersionException`
-
-Esse erro ocorre quando a pasta `neo4j/data` foi criada com uma versão diferente do Neo4j e você tenta iniciar com uma versão inferior.
-
-**Solução:**
-
-```bash
-rm -rf ./neo4j/data
-docker-compose down -v
-docker-compose up --build
-```
-
-Esse projeto permite reprocessamento completo, então o banco pode ser recriado com segurança.
-
-
-
-## Execução com Docker e Makefile
-
-A aplicação foi estruturada para ser executada facilmente em ambiente isolado, utilizando `Docker`, `docker-compose` e um `Makefile` com comandos padronizados. Isso permite replicar o ambiente de desenvolvimento e testes com consistência, independentemente do sistema operacional.
-
-### Pré-requisitos
-
-- Docker
-- Docker Compose v2
-- Make
-
-### Variáveis de Ambiente
-
-As configurações são centralizadas no arquivo `.env`, incluindo:
-
-```
-NEO4J_URI=bolt://neo4j:7687
-NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=testpassword
-GENERATOR_INTERVAL_MINUTES=1
-GENERATOR_COUNTRY_COUNT=3
-GENERATOR_CASES_PER_COUNTRY=10
-ETL_INTERVAL_SECONDS=61
-API_PORT=8080
-OUTPUT_DIR=/data
+4. Transformação dos dados:
+   - Cada linha lida é convertida em uma entidade do domínio (`Country`, `CovidCase`, etc.).
+   - Aplicação de validações e formatações (ex: parse de datas).
+
+5. Processamento por tipo de dado:
+   - Carregamento dos dados ocorre de forma modular:
+     - Países → Vacinas → Casos de COVID → Relações país-vacina → Vacinação → Aprovações.
+
+6. Escrita em lote no banco Neo4j:
+   - Inserções são agrupadas em batches (`ETL_BATCH_SIZE`).
+   - Uso de transações otimizadas e comandos `MERGE` para garantir idempotência.
+
+7. Conclusão do ciclo:
+   - O arquivo `ready.flag` é removido.
+   - O ETL retorna ao estado de monitoramento, aguardando nova geração de dados.
 
 ```
 
-### Subindo o ambiente completo
 
-Para subir todos os serviços (API, ETL, Neo4j e gerador de CSVs):
+
+### 3.6. Variáveis de Ambiente
+
+| Variável             | Descrição                          | Exemplo             |
+|----------------------|------------------------------------|---------------------|
+| OUTPUT_DIR           | Diretório dos arquivos CSV         | ./data              |
+| ETL_INTERVAL_SECONDS | Intervalo entre execuções do ETL   | 300                 |
+| ETL_BATCH_SIZE       | Tamanho do batch de inserção       | 500                 |
+
+---
+
+
+## 4. API
+
+### 4.1. Descrição Geral
+
+A API REST fornece endpoints para consulta de dados relacionados à COVID-19, permitindo acesso a informações respondendo aos questionamentos especificados para o case técnico:
+
+1. Qual foi o total acumulado de casos e mortes de Covid-19 em um país específico em uma
+data determinada?
+2. Quantas pessoas foram vacinadas com pelo menos uma dose em um determinado país em
+uma data específica?
+3. Quais vacinas foram usadas em um país específico?
+4. Em quais datas as vacinas foram autorizadas para uso?
+5. Quais países usaram uma vacina específica
+
+### 4.2. Estrutura
+
+A estrutura da API foi projetada seguindo os princípios da Arquitetura Hexagonal (Ports and Adapters), respeitando conceitos de Clean Architecture e SOLID, com foco em desacoplamento e escalabilidade.
+
+- **Entities (Domínio)**
+  - Representam os conceitos fundamentais do sistema: `Country`, `CovidCase`, `VaccinationStat`, `Vaccine`, `VaccineApproval`.
+  - Define também as interfaces de repositórios (`CovidRepository`, `VaccinationRepository`, `VaccineRepository`), que descrevem o contrato da persistência sem se acoplar a nenhuma tecnologia.
+
+- **UseCases (Aplicação)**
+  - Implementam a lógica de orquestração da aplicação.
+  - Cada caso de uso é responsável por receber dados de entrada (via DTOs), chamar o repositório adequado e retornar dados de saída também formatados como DTOs.
+  - O UseCase depende apenas da abstração (`interface`) dos repositórios, permitindo a inversão de dependência.
+
+  Exemplo de fluxo em um UseCase:
+  ```
+  InputDTO → UseCase → Chamada de interface de repositório → OutputDTO
+  ```
+
+- **Repositories (Infraestrutura)**
+  - Implementam as interfaces definidas no domínio.
+  - São responsáveis por interagir diretamente com o banco de dados Neo4j.
+  - Isolam detalhes técnicos como consultas Cypher, permitindo que a aplicação não dependa da tecnologia usada.
+
+- **Handlers (Interface Externa - API HTTP)**
+  - São responsáveis por receber as requisições HTTP, extrair os parâmetros e chamar os UseCases.
+  - Os Handlers não conhecem regras de negócio, entidades ou detalhes de banco de dados.
+  - Eles apenas tratam a entrada da requisição, invocam o UseCase e devolvem a resposta adequada.
+
+- **DTOs (Data Transfer Objects)**
+  - São utilizados para definir os formatos de entrada e saída dos UseCases.
+  - Permitem desacoplar a API das estruturas internas do domínio, garantindo que mudanças internas não afetem diretamente a comunicação externa.
+
+### 4.3. Padrão de Execução da API
+
+O fluxo completo de processamento de uma requisição HTTP na API segue a seguinte sequência controlada:
+
+```text
+1. Recepção da Requisição:
+   - O Handler recebe a requisição e extrai os parâmetros de entrada.
+
+2. Montagem do InputDTO:
+   - Os dados extraídos são organizados em um objeto de transferência de dados (DTO).
+
+3. Chamada ao UseCase:
+   - O UseCase recebe o InputDTO e executa a lógica de negócio necessária.
+
+4. Acesso ao Repositório:
+   - O UseCase interage com a interface do repositório para consultar ou persistir informações no banco.
+
+5. Montagem do OutputDTO:
+   - O resultado da operação é encapsulado em um OutputDTO, isolando a estrutura interna do domínio.
+
+6. Resposta HTTP:
+   - O Handler retorna o OutputDTO convertido em resposta JSON para o cliente.
+```
+
+### 4.4. Justificativas da Arquitetura
+
+- **Desacoplamento total entre camadas**
+  - Handlers não sabem da estrutura do domínio.
+  - UseCases não sabem quem implementa os repositórios.
+  - Repositórios são definidos por interfaces e injetados no momento da inicialização.
+
+- **Facilidade para testes**
+  - Como tudo depende de abstrações, é possível mockar repositórios facilmente nos testes de UseCase.
+
+- **Facilidade para trocar implementações**
+  - Se amanhã for necessário trocar o Neo4j por outro banco de grafos, apenas a implementação do repositório precisaria mudar — o restante do sistema continuaria intacto.
+
+- **Escalabilidade de código**
+  - Fica fácil adicionar novos endpoints, novos casos de uso, ou novas fontes de dados (por exemplo, Kafka, filas, ou API externa) sem afetar a estrutura central da aplicação.
+
+- **Organização de diretórios**
+  - Separação em `internal/entity`, `internal/usecase`, `internal/infra/repository/neo4j`, e `internal/api/handler` reflete as fronteiras da arquitetura hexagonal.
+
+---
+
+
+### 4.5. Endpoints
+
+#### 1. Total acumulado de casos e mortes
+
+- Método: GET
+- URL: `/covid-stats?iso3={ISO3}&date={YYYY-MM-DD}`
+
+Exemplo:
+```
+GET /covid-stats?iso3=BRA&date=2021-01-10
+```
+
+Resposta:
+```json
+{
+  "iso3": "BRA",
+  "date": "2021-01-10",
+  "total_cases": 55726,
+  "total_deaths": 1449
+}
+```
+
+#### 2. Total de vacinados
+
+- Método: GET
+- URL: `/vaccination?iso3={ISO3}&date={YYYY-MM-DD}`
+
+Exemplo:
+```
+GET /vaccination?iso3=BRA&date=2021-01-13
+```
+
+Resposta:
+```json
+{
+  "iso3": "BRA",
+  "date": "2021-01-13",
+  "total_vaccinated": 839584
+}
+```
+
+#### 3. Vacinas usadas em um país
+
+- Método: GET
+- URL: `/vaccines?iso3={ISO3}`
+
+Exemplo:
+```
+GET /vaccines?iso3=DEU
+```
+
+Resposta:
+```json
+{
+  "iso3": "DEU",
+  "vaccines": [
+    "Pfizer-BioNTech",
+    "Sinovac",
+    "Sputnik V"
+  ]
+}
+```
+
+#### 4. Datas de aprovação de vacinas
+
+- Método: GET
+- URL: `/approval-dates?name={VaccineName}`
+
+Exemplo:
+```
+GET /approval-dates?name=Sinovac
+```
+
+Resposta:
+```json
+{
+  "vaccine": "Sinovac",
+  "approval_dates": [
+    "2020-11-08"
+  ]
+}
+```
+
+#### 5. Países que usaram uma vacina
+
+- Método: GET
+- URL: `/countries-by-vaccine?name={VaccineName}`
+
+Exemplo:
+```
+GET /countries-by-vaccine?name=Pfizer-BioNTech
+```
+
+Resposta:
+```json
+{
+  "vaccine": "Pfizer-BioNTech",
+  "countries": [
+    "BRA",
+    "DEU"
+  ]
+}
+```
+
+### 4.6. Variáveis de Ambiente
+
+| Variável       | Descrição     | Exemplo             |
+|----------------|---------------|---------------------|
+| API_HOST       | IP da API     | 0.0.0.0             |
+| API_PORT       | Porta da API  | 8080                |
+| NEO4J_URI      | URI do Neo4j  | bolt://neo4j:7687   |
+| NEO4J_USERNAME | Usuário Neo4j | neo4j               |
+| NEO4J_PASSWORD | Senha Neo4j   | testpassword        |
+
+## 5. Banco de Dados (Neo4j)
+
+### 5.1. Modelagem de Dados
+
+- **Nós**: Representam entidades como países, vacinas e aprovações.
+- **Relacionamentos**: Conectam os nós para indicar associações, como um país que utilizou uma vacina.
+
+### 5.2. Estratégias de Persistência
+
+- **MERGE**: Utilizado para garantir que nós e relacionamentos não sejam duplicados.
+- **Constraints**: Definidos para assegurar a unicidade de determinados atributos.
+
+## 6. Decisões Técnicas
+
+### 6.1. Geração de CSVs baseada em tabelas relacionais
+
+Optou-se por gerar os arquivos CSV simulando tabelas relacionais para facilitar a transformação dos dados em entidades do domínio e posterior inserção no Neo4j.
+
+Essa estratégia visa:
+
+- Permitir uma transição natural entre modelo relacional e modelo de grafos.
+- Garantir clareza nos relacionamentos entre entidades.
+- Facilitar a leitura dos dados para futuros loaders de grafos ou bancos relacionais.
+
+#### 6.1.1. Explicação dos Relacionamentos
+
+| Tabela Origem | Tabela Destino | Tipo de Relacionamento | Explicação |
+|---------------|----------------|------------------------|------------|
+| country       | covid_case      | 1:N                    | Um país pode ter muitos registros de casos de COVID (um por data). |
+| country       | vaccination_stats | 1:N                  | Um país pode ter muitos registros de vacinação (um por data). |
+| country       | vaccine (via country_vaccine) | N:N         | Um país pode usar várias vacinas, e uma vacina pode ser usada por vários países. |
+| vaccine       | vaccine_approval | 1:1                  | Cada vacina tem uma única data de aprovação. |
+
+#### 6.1.2. Resumo Simplificado
+
+- `country` 1:N `covid_case`
+- `country` 1:N `vaccination_stats`
+- `country` N:N `vaccine` (através da tabela de junção `country_vaccine`)
+- `vaccine` 1:1 `vaccine_approval`
+
+#### 6.1.3. Controle da Ordem de Leitura e Carga
+
+Para manter a coerência lógica dos dados ao construir o grafo no Neo4j, a ordem de ingestão dos CSVs foi definida da seguinte forma:
+
+1. **Carregar Países (`countries.csv`)**
+   - Os nós de países precisam existir antes de criar qualquer relacionamento ou evento associado a eles.
+
+2. **Carregar Vacinas (`vaccines.csv`)**
+   - As vacinas precisam estar presentes antes de associá-las aos países ou registrar aprovações.
+
+3. **Carregar Casos de COVID (`covid_cases.csv`) e Relações País → Vacinas (`country_vaccines.csv`)**
+   - Os registros de casos e as relações de uso de vacinas precisam dos nós de países e vacinas já presentes.
+
+4. **Carregar Estatísticas de Vacinação (`vaccinations.csv`) e Aprovações de Vacinas (`vaccine_approvals.csv`)**
+   - Estatísticas e aprovações são inseridas após os relacionamentos principais já estarem estabelecidos.
+
+Essa ordem garante que:
+
+- Nenhuma tentativa de criar uma relação ocorra sem os nós necessários já criados.
+- O grafo final mantenha consistência sem dependências faltantes.
+- O processo de carga seja robusto mesmo em execuções parciais ou reinícios.
+
+Além disso, como cada tipo de entidade tem loaders separados, é possível **ler diferentes arquivos em paralelo**, respeitando a ordem de dependências lógicas.
+
+---
+
+### 6.2. Remoção do campo `vaccine` da entidade `VaccineApproval`
+
+Identificou-se que o campo `vaccine` era redundante, pois a associação entre vacinas e aprovações já é representada por relacionamentos no grafo. Sua remoção simplificou a estrutura e evitou inconsistências.
+
+### 6.3. Retorno de objetos completos ou dados primitivos nas interfaces de repositório
+
+A decisão sobre o tipo de retorno das interfaces de repositório foi baseada na complexidade dos dados:
+
+- **Objetos completos**: Utilizados quando múltiplos atributos relacionados são retornados.
+- **Dados primitivos**: Utilizados para retornos simples, como contagens ou valores únicos.
+
+### 6.4. Tratamento de dados repetidos com chaves primárias
+
+Ao identificar registros com chaves primárias duplicadas, optou-se por atualizar os dados existentes com as novas informações. Essa abordagem garante que o banco reflita os dados mais recentes.
+
+
+
+## 7. Instruções de Uso
+
+### 7.1. Pré-requisitos
+
+- Docker e Docker Compose instalados
+- Make instalado (opcional, mas recomendado)
+
+### 7.2. Subir todos os serviços
+
+Para compilar e subir todos os serviços (Neo4j, CSV Generator, ETL, e API), basta rodar:
 
 ```
-make up
+make run
 ```
 
-Para derrubar todos os containers:
+Esse comando executa:
+
+- Testes de unidade
+- Build das imagens Docker (API, ETL, CSV Generator)
+- Inicialização dos containers
+
+> Caso prefira executar manualmente:
+> 
+> ```
+> make build-all
+> make up
+> ```
+
+### 7.3. Parar todos os serviços
+
+Para parar e remover os containers:
 
 ```
 make down
 ```
 
-### Comandos disponíveis no Makefile
+### 7.4. Visualizar logs dos containers
 
-| Comando         | Descrição                                             |
-|-----------------|-------------------------------------------------------|
-| `make up`       | Sobe todos os serviços com docker-compose             |
-| `make down`     | Derruba os containers                                 |
-| `make api`      | Executa somente o serviço da API localmente           |
-| `make etl`      | Executa somente o serviço de ETL localmente           |
-| `make test`     | Executa os testes da aplicação                        |
-| `make build`    | Compila os binários da API e ETL                      |
-| `make logs`     | Mostra os logs dos containers                         |
-
-### Execução isolada
-
-Para rodar a ETL em modo contínuo:
+Para acompanhar os logs em tempo real:
 
 ```
-go run cmd/etl/main.go
+make logs
 ```
 
-Para rodar a API localmente:
+### 7.5. Reiniciar todo o ambiente
+
+Para reiniciar os containers:
 
 ```
-go run cmd/api/main.go
+make restart
 ```
 
-### Acesso ao Neo4j
+### 7.6. Testar cobertura dos testes
 
-Após subir o ambiente, o Neo4j estará disponível em:
-
-```
-http://localhost:7474
-```
-
-Login padrão:
-- Usuário: `neo4j`
-- Senha: `testpassword`
-
-A senha pode ser alterada ou desabilitada via variável `NEO4J_AUTH=none` no `docker-compose.yml`, se necessário.
-
-## Endpoints da API REST
-
-A API foi implementada utilizando o framework `Gin` em Golang. Os endpoints foram desenvolvidos para responder às perguntas propostas no desafio técnico, de forma parametrizável via query params.
-
-### 1. Total acumulado de casos e mortes por país e data
-
-**Endpoint:**
+Para rodar testes com análise de cobertura:
 
 ```
-GET /cases-and-deaths
+make test-cover
 ```
 
-**Parâmetros:**
+### 7.7. Acessar os serviços
 
-- `country`: código ISO3 do país (ex: `BRA`)
-- `date`: data no formato `YYYY-MM-DD`
+- **Neo4j Browser**: `http://localhost:7474`
+- **API REST**: `http://localhost:8080`
+- **Documentação Swagger**: `http://localhost:8080/swagger/index.html`
 
-**Exemplo:**
+### 7.8. Variáveis de Ambiente
 
-```
-GET /cases-and-deaths?country=BRA&date=2021-02-01
-```
+Todas as variáveis são configuradas no arquivo `.env`:
 
-**Resposta:**
-
-```json
-{
-  "country": "Brazil",
-  "date": "2021-02-01",
-  "total_cases": 1500000,
-  "total_deaths": 45000
-}
-```
+| Variável             | Descrição                 | Exemplo             |
+|----------------------|---------------------------|---------------------|
+| NEO4J_URI             | URI do Neo4j               | bolt://neo4j:7687   |
+| NEO4J_USERNAME        | Usuário do Neo4j           | neo4j               |
+| NEO4J_PASSWORD        | Senha do Neo4j             | testpassword        |
+| OUTPUT_DIR            | Diretório de saída dos CSVs | ./data              |
+| ETL_INTERVAL_SECONDS  | Intervalo entre execuções do ETL | 300         |
+| ETL_BATCH_SIZE        | Tamanho dos batches de carga | 500               |
+| API_HOST              | IP para a API ouvir         | 0.0.0.0             |
+| API_PORT              | Porta da API               | 8080                |
 
 ---
 
-### 2. Total de pessoas vacinadas por país e data
 
-**Endpoint:**
 
-```
-GET /vaccinated
-```
+## 8. Melhorias Futuras
 
-**Parâmetros:**
-
-- `country`: código ISO3 do país
-- `date`: data no formato `YYYY-MM-DD`
-
-**Exemplo:**
-
-```
-GET /vaccinated?country=DEU&date=2021-01-10
-```
-
-**Resposta:**
-
-```json
-{
-  "country": "Germany",
-  "date": "2021-01-10",
-  "total_vaccinated": 200000
-}
-```
+- Adicionar retentativas automáticas para batches com falhas no ETL.
+- Integrar monitoramento e alertas para falhas no ETL e na API.
+- Melhorar o sistema de logs para registrar operações críticas e falhas com mais detalhes.
+- Aumentar a consistência e profundidade dos dados armazenados no Neo4j para suportar novos casos analíticos.
+- Implementar testes unitários e mocks na camada de UseCases da API, garantindo cobertura de regras de negócio.
+- Implementar estágios intermediários no ETL seguindo a arquitetura Medallion:
+  - **Bronze**: armazenamento dos dados brutos recebidos (sem limpeza).
+  - **Silver**: armazenamento dos dados validados, deduplicados e transformados.
+  - **Gold**: dados agregados e preparados para análises de negócio.
+  - Atualmente os dados são manipulados apenas em memória durante o processamento. A criação de CSVs intermediários nas camadas bronze/silver permitiria maior rastreabilidade, recuperação em caso de falhas e preparação para cenários de alta escala.
 
 ---
 
-### 3. Vacinas utilizadas por país
+## 9. Gerador de CSVs
 
-**Endpoint:**
+### 9.1. Descrição
 
-```
-GET /vaccines-by-country
-```
+O projeto inclui um gerador automático de arquivos CSV para simular dados relacionados à COVID-19, vacinação e aprovação de vacinas.  
+Este gerador permite a alimentação contínua do processo de ETL, garantindo que haja novos dados disponíveis periodicamente.
 
-**Parâmetros:**
+### 9.2. Funcionamento
 
-- `country`: código ISO3 do país
+- Gera os seguintes arquivos no diretório de saída (`OUTPUT_DIR`):
+  - `countries.csv`
+  - `covid_cases.csv`
+  - `vaccinations.csv`
+  - `vaccines.csv`
+  - `country_vaccines.csv`
+  - `vaccine_approvals.csv`
+- Cria o arquivo `ready.flag` para sinalizar que os arquivos estão prontos para processamento.
+- Reescreve os arquivos a cada intervalo de tempo configurável.
 
-**Exemplo:**
+Os dados são gerados de forma aleatória, mas respeitando uma estrutura consistente para simular cenários reais.
 
-```
-GET /vaccines-by-country?country=USA
-```
+### 9.3. Estratégias Aplicadas
 
-**Resposta:**
+- **Escrita segura**: os arquivos são primeiro gravados como `.tmp` e depois renomeados, evitando arquivos corrompidos.
+- **Controle de disponibilidade**: a criação de `ready.flag` permite que o ETL saiba quando os dados estão prontos.
+- **Configurações flexíveis**: o número de países, intervalo de geração e diretório de saída podem ser controlados via variáveis de ambiente.
 
-```json
-{
-  "country": "United States",
-  "vaccines": ["Pfizer-BioNTech", "Moderna"]
-}
-```
+### 9.4. Variáveis de Ambiente
+
+| Variável                      | Descrição                                 | Exemplo |
+|--------------------------------|-------------------------------------------|---------|
+| OUTPUT_DIR                     | Diretório onde os CSVs serão gerados      | ./data  |
+| GENERATOR_COUNTRY_COUNT        | Número de países a serem gerados          | 30      |
+| GENERATOR_INTERVAL_MINUTES     | Intervalo entre gerações de CSVs (minutos) | 5      |
+
+### 9.5. Observações
+
+- Todos os países gerados possuem dados contínuos desde 01/01/2021.
+- Cada país pode estar associado a 1 até 3 vacinas aleatórias.
+- A cada nova geração, os arquivos anteriores são substituídos.
+- O gerador depende apenas das bibliotecas padrão do Python e é agendado usando `schedule`.
+- O serviço `csv-generator` no `docker-compose.yml` é iniciado junto com o ambiente e depende do serviço `neo4j` estar saudável.
+
+---
+## 10. Desempenho
+
+### 10.1. API
+
+#### Pontos fortes
+
+- **Alta eficiência**: A API utiliza o framework Gin Gonic, conhecido pela sua alta performance para requisições HTTP.
+- **Baixo acoplamento**: A arquitetura hexagonal permite que Handlers, UseCases e Repositories operem de forma independente, otimizando o tempo de resposta.
+- **Consultas otimizadas**: As queries no Neo4j são específicas e utilizam constraints (`UNIQUE`) para buscas rápidas.
+- **Escalabilidade**: A API é stateless, podendo ser replicada horizontalmente com balanceamento de carga.
+
+#### Limitações atuais
+
+- **Conexão padrão com Neo4j**: O pool de conexões ainda não foi customizado para cenários de alta concorrência.
+- **Ausência de cache**: Todas as requisições resultam em consultas diretas ao banco.
+- **Sem paginação**: Endpoints podem potencialmente retornar muitos resultados sem limites, aumentando a carga.
+
+#### Melhorias futuras
+
+- Implementar configuração customizada de pool de conexões para Neo4j.
+- Introduzir cache de respostas para consultas mais frequentes.
+- Implementar paginação e limites de resposta para grandes volumes de dados.
 
 ---
 
-### 4. Datas de aprovação de uma vacina
+### 10.2. ETL
 
-**Endpoint:**
+#### Pontos fortes
 
-```
-GET /approval-dates
-```
+- **Inserções em batch**: Dados são agrupados em lotes (`ETL_BATCH_SIZE`) para reduzir overhead de transações no Neo4j.
+- **Idempotência com MERGE**: Permite reprocessamentos seguros, sem risco de dados duplicados.
+- **Separação modular**: Cada tipo de entidade (`Country`, `CovidCase`, `VaccinationStat`, etc.) possui seu loader específico, facilitando manutenção e evolução.
+- **Arquitetura preparada para streaming**: A estrutura `StreamData` permite processamentos linha a linha no futuro.
 
-**Parâmetros:**
+#### Limitações atuais
 
-- `vaccine`: nome da vacina (exato)
+- **Processamento completo a cada ciclo**: Todo o conjunto de dados é lido e reprocessado a cada execução do ETL.
+- **Ausência de carga incremental**: O ETL ainda não identifica e carrega apenas registros novos.
+- **Execução sequencial**: Os diferentes loaders operam de forma sequencial, sem paralelismo entre tipos de dados.
 
-**Exemplo:**
+#### Melhorias futuras
 
-```
-GET /approval-dates?vaccine=AstraZeneca
-```
-
-**Resposta:**
-
-```json
-{
-  "vaccine": "AstraZeneca",
-  "approval_date": "2021-01-29"
-}
-```
+- Implementar carga incremental (delta ingestion) para otimizar tempo e consumo de recursos.
+- Explorar paralelismo entre loaders para acelerar o tempo total de ingestão.
+- Aproveitar o streaming linha a linha (`StreamData`) para processar grandes volumes sem sobrecarregar a memória.
 
 ---
+#### Testes de Carga Realizados
 
-### 5. Países que utilizaram uma vacina específica
+Foram realizados testes de ingestão configurando:
 
-**Endpoint:**
+- `GENERATOR_COUNTRY_COUNT=10`
+- `GENERATOR_CASES_PER_COUNTRY=10000`
 
-```
-GET /countries-by-vaccine
-```
-
-**Parâmetros:**
-
-- `vaccine`: nome da vacina (exato)
-
-**Exemplo:**
-
-```
-GET /countries-by-vaccine?vaccine=Pfizer-BioNTech
-```
-
-**Resposta:**
-
-```json
-{
-  "vaccine": "Pfizer-BioNTech",
-  "countries": ["United States", "Germany"]
-}
-```
-
----
-
-### Observações
-
-- Todos os parâmetros são obrigatórios para retorno válido.
-- As respostas retornam status HTTP 400 em caso de parâmetros inválidos ou ausentes.
-- Em produção, endpoints poderiam ser protegidos por autenticação e cache, não implementados neste desafio.
-
-## Testes Automatizados
-
-O projeto inclui testes unitários para os principais componentes do ETL e utilitários auxiliares. A estratégia adotada foi validar funcionalidades críticas de leitura de arquivos, transformação de dados e utilitários que fazem parsing e normalização.
-
-### Estratégia de Testes
-
-- Foram priorizadas as camadas `reader/` e `util/`, que contêm lógica de parsing, validação e transformação.
-- Os testes verificam o comportamento com dados válidos e inválidos, garantindo robustez em situações esperadas na ingestão de arquivos CSV simulados.
-- Foram utilizados mocks simples e arquivos de entrada sintéticos para isolar a lógica testada.
-- Os testes podem ser executados com `go test ./...`
-
-### Exemplos de arquivos testados
-
-- `reader/covid_case_reader_test.go`
-- `reader/country_reader_test.go`
-- `reader/vaccination_reader_test.go`
-- `util/date_test.go`
-
-### Como rodar os testes
-
-A execução dos testes pode ser feita localmente com o comando:
-
-```
-make test
-```
-
-Ou diretamente com:
-
-```
-go test ./...
-```
-
-### Possíveis melhorias
-
-Por limitação de tempo, **não foram implementados testes para os handlers da API nem testes de integração com o banco Neo4j**. Com mais tempo, seria possível:
-
-- Criar testes de integração para os repositórios, validando Cypher executado.
-- Mockar o driver do Neo4j nos testes da camada `usecase/`.
-- Testar os handlers da API com `httptest.NewRecorder()` e chamadas simuladas.
-
-A estrutura do projeto já está preparada para suportar testes mais avançados com injeção de dependência e interfaces desacopladas.
-
-
-
-## Decisões Técnicas Justificadas
-
-Esta seção descreve as principais decisões técnicas tomadas durante o desenvolvimento da solução, com justificativas baseadas em boas práticas, entrevistas e materiais de referência como o livro *Understanding ETL (O’Reilly, 2024)*.
-
-### 1. Estrutura modular da aplicação
-
-O projeto foi organizado de forma modular, com separação clara entre:
-
-- `handler`: camada de entrada HTTP.
-- `repository`: camada de acesso ao banco (Neo4j).
-- `reader`: responsável pela leitura e parsing dos arquivos CSV.
-- `loader`: lógica de transformação e escrita no banco.
-- `util`: funções auxiliares para parse e validações.
-
-Essa estrutura facilita manutenção e evolução do sistema, mesmo sem aplicar todos os elementos da Clean Architecture (como `usecase`, não utilizado aqui por simplicidade e escopo).
-
-### 2. Uso do modelo Medallion (Bronze, Silver, Gold)
-
-O pipeline ETL foi dividido em camadas:
-
-- **Bronze**: dados brutos gerados periodicamente pelo `csv-generator`, simulando dumps SQL.
-- **Silver**: parsing e validação dos dados em memória.
-- **Gold**: escrita no Neo4j com relacionamento entre entidades, garantindo integridade.
-
-A divisão entre camadas ajuda a organizar responsabilidades e permite rastrear erros com mais precisão.
-
-### 3. Identificadores lógicos no grafo
-
-A modelagem no Neo4j foi feita com identificadores de negócio, ao invés de IDs técnicos dos CSVs:
-
-- País → `iso3`
-- Vacina → `name`
-- Casos → `date + iso3`
-- Estatísticas de vacinação → `date + iso3`
-- Aprovação → `vaccine_name`
-
-Essa abordagem torna as consultas mais naturais e evita colisões ou duplicidade de dados.
-
-### 4. Constraints no Neo4j
-
-Foram criadas constraints para garantir unicidade de nós no grafo, permitindo ingestão idempotente:
-
-```cypher
-CREATE CONSTRAINT country_iso3_unique IF NOT EXISTS FOR (c:Country) REQUIRE c.iso3 IS UNIQUE
-```
-
-O uso de `MERGE` em conjunto com essas constraints garante que execuções repetidas do ETL não causem duplicações.
-
-### 5. Tratamento de duplicidades nos CSVs
-
-Na prática, arquivos CSV exportados de bancos podem conter registros repetidos. O ETL foi projetado para ser **tolerante a esse tipo de duplicidade**. A deduplicação ocorre por dois mecanismos:
-
-- Durante o parsing, linhas duplicadas são ignoradas na etapa de leitura.
-- No momento da escrita no Neo4j, o uso de `MERGE` e as `constraints` garantem que os nós e relacionamentos não sejam criados em duplicidade.
-
-Isso torna a ingestão confiável mesmo em cenários onde os dados de entrada não são perfeitamente limpos.
-
-### 6. Reuso da conexão com Neo4j
-
-A lógica de conexão foi isolada no arquivo:
-
-```
-internal/repository/neo4j/client.go
-```
-
-Esse client é compartilhado entre a API e a ETL, seguindo o princípio de reuso e facilitando alterações futuras (ex: troca de banco ou configuração centralizada).
-
-### 7. Simulação de dados com `csv-generator`
-
-Foi desenvolvido um script em Python que gera arquivos CSV continuamente, simulando dumps de bancos relacionais. A escolha por múltiplos arquivos, gerados com timestamps distintos, ajuda a testar a ingestão incremental.
-
-- Intervalo configurável: `GENERATOR_INTERVAL_MINUTES`
-- Volume configurável: `GENERATOR_COUNTRY_COUNT`, `GENERATOR_CASES_PER_COUNTRY`
-- Os arquivos são salvos em `./data`, volume compartilhado com a ETL.
-
-### 8. Projeto preparado para evoluções
-
-Mesmo com escopo controlado, a arquitetura permite evoluções futuras como:
-
-- Substituição dos CSVs por conexões com bancos, APIs ou filas.
-- Testes de integração com banco e rotas HTTP.
-- Cache, autenticação e middlewares.
-- Paralelização da ingestão com goroutines e workers (não implementado por falta de tempo).
-
-## Limitações e Melhorias Futuras
-
-Por conta de restrições de tempo relacionadas à minha carga de trabalho atual, algumas funcionalidades importantes não foram implementadas dentro da janela de entrega. No entanto, pretendo continuar evoluindo esta solução em uma branch separada, fora do escopo da avaliação inicial, com foco em torná-la mais robusta, escalável e próxima de um ambiente de produção real.
-
-Abaixo estão listadas as melhorias previstas, com detalhamento técnico de como seriam implementadas.
-
-### 1. Paralelismo com Workers na ETL
-
-Atualmente, o processamento dos arquivos CSV é sequencial. Para ambientes com grande volume de dados, a escalabilidade pode ser significativamente melhorada utilizando paralelismo com goroutines e channels.
-
-**Como seria implementado:**
-
-- Criar um `channel` para envio de caminhos de arquivos CSV ou blocos de linhas.
-- Iniciar múltiplos workers (`goroutines`) lendo do channel, cada um processando um arquivo ou lote de dados.
-- Usar `sync.WaitGroup` para controlar a finalização dos workers.
-- Garantir controle de concorrência na escrita no banco, respeitando limites de conexões do driver do Neo4j.
-
-**Exemplo simplificado:**
-
-```go
-files := getCSVFiles()
-lineChan := make(chan string)
-wg := sync.WaitGroup{}
-
-for i := 0; i < numWorkers; i++ {
-    wg.Add(1)
-    go func() {
-        defer wg.Done()
-        for line := range lineChan {
-            _ = processLine(line)
-        }
-    }()
-}
-
-for _, file := range files {
-    for _, line := range readLines(file) {
-        lineChan <- line
-    }
-}
-close(lineChan)
-wg.Wait()
-```
-
-Essa abordagem permite escalar horizontalmente e usar melhor os recursos da máquina.
-
----
-
-### 2. Otimizações com Workers e Cache na API
-
-Em cenários com grande volume de chamadas simultâneas, a API pode se beneficiar de melhorias como:
-
-- **Cache em memória** para queries pouco voláteis (ex: datas de aprovação de vacinas).
-- **Fila interna de processamento** para chamadas intensivas que podem ser processadas em background.
-- **Worker pools** para lidar com eventos concorrentes de forma previsível.
-
-**Como seria feito:**
-
-- Implementação de cache usando bibliotecas como `go-cache` ou `groupcache`.
-- Uso de `middleware` para invalidação de cache condicional.
-- Separação de handlers que exigem baixa latência dos que podem ser enfileirados (via `channel` + `worker`).
-
----
-
-### 3. Tratamento mais robusto de erros
-
-A versão atual da ETL apenas loga erros simples, mas não categoriza nem realiza retry. Em ambiente produtivo, é necessário:
-
-**Como seria feito:**
-
-- Uso de estrutura de erro enriquecida (`type EnrichedError struct { Op string; Err error; Line string; File string }`)
-- Implementação de retry automático com política de backoff exponencial (ex: `time.Sleep(backoff)`).
-- Envio de erros críticos para uma `dead-letter queue` (ex: arquivo `.errlog`, banco auxiliar ou tópico Kafka).
-- Monitoramento com alertas para falhas repetidas (ex: integração futura com Prometheus/Grafana).
-
----
-
-### 4. Testes com alto volume de dados
-
-Os testes atuais utilizam arquivos pequenos e sintéticos. Em produção, seria necessário:
-
-**Como seria feito:**
-
-- Geração automática de milhares de linhas para cada CSV com um script Python ou Go.
-- Simulação de ingestão em carga com medição de tempo e uso de memória.
-- Análise de performance de ingestão por núcleo (CPU-bound vs IO-bound).
-- Benchmark com `go test -bench` e medição do throughput de escrita no Neo4j.
-
----
-
-### 5. Testes de integração e cobertura total da aplicação
-
-**Como seria feito:**
-
-- Implementação de testes da camada `repository` com banco Neo4j em container isolado.
-- Testes da API com `httptest.NewRecorder`, validando rotas, parâmetros e status code.
-- Uso de bibliotecas como `testcontainers-go` para simular ambiente real em CI.
-- Criação de fixtures e seeds para cenários específicos de teste.
-- Pipeline CI com `make test` e `go test ./...` executando a cada push.
-
----
-
-### Considerações finais
-
-Todas essas melhorias são tecnicamente viáveis e fazem parte do roadmap para evolução da aplicação. Embora não tenham sido incluídas nesta versão por limitações de agenda profissional, pretendo continuar a evolução do projeto em uma branch separada (`improvements`) após o prazo de entrega da avaliação técnica, com objetivo de transformá-lo em uma base reutilizável para projetos reais de ingestão e análise de dados em grafos.
-
-
+Esse cenário gerou aproximadamente **100.000 registros de casos de COVID** e **100.000 registros de vacinações** para simular um volume considerável de dados.  
+O ETL se comportou de forma estável neste volume, validando a estratégia de inserções em batch e o uso de transações controladas para escrita no Neo4j.

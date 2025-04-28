@@ -3,7 +3,7 @@ package util_test
 import (
 	"os"
 	"testing"
-	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/util"
+	"github.com/Faracoeng/jobs/graph-analysis/spec/analyst/solucao/internal/etl/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +13,8 @@ func TestReadCSVFile_Deduplication(t *testing.T) {
 	tmp := createTempCSV(t, content)
 	defer os.Remove(tmp)
 
-	lines := util.ReadCSVFile(tmp)
+	lines, err := util.ReadCSVFile(tmp)
+	require.NoError(t, err)
 	require.Len(t, lines, 2) // sem cabeçalho e sem duplicação
 	assert.Equal(t, []string{"A", "B"}, lines[0])
 	assert.Equal(t, []string{"C", "D"}, lines[1])

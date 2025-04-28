@@ -14,6 +14,19 @@ type VaccinationHandler struct {
 func NewVaccinationHandler(uc *usecase.GetVaccinatedUseCase) *VaccinationHandler {
 	return &VaccinationHandler{usecase: uc}
 }
+// GetVaccinated retorna o total de pessoas vacinadas em um país na data informada
+// @Summary Total de pessoas vacinadas por país e data
+// @Description Retorna o número de pessoas vacinadas com pelo menos uma dose em um país em uma data específica
+// @Tags vaccination
+// @Accept json
+// @Produce json
+// @Param iso3 query string true "Código ISO3 do país"
+// @Param date query string true "Data no formato YYYY-MM-DD"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /vaccination [get]
+
 // Quantas pessoas foram vacinadas com pelo menos uma dose em um determinado país em uma data específica?
 func (h *VaccinationHandler) GetVaccinated(c *gin.Context) {
 	iso3 := c.Query("iso3")

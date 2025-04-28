@@ -14,6 +14,19 @@ type CovidHandler struct {
 func NewCovidHandler(uc *usecase.GetCovidStatsUseCase) *CovidHandler {
 	return &CovidHandler{usecase: uc}
 }
+// GetCovidStats retorna o total acumulado de casos e mortes de Covid-19 em um país na data informada
+// @Summary Total de casos e mortes por país e data
+// @Description Retorna o total de casos e mortes de Covid-19 para um país em uma data específica
+// @Tags covid
+// @Accept json
+// @Produce json
+// @Param iso3 query string true "Código ISO3 do país"
+// @Param date query string true "Data no formato YYYY-MM-DD"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /covid-stats [get]
+
 // Qual foi o total acumulado de casos e mortes de Covid-19 em um país específico em uma data determinada?
 func (h *CovidHandler) GetCovidStats(c *gin.Context) {
 	iso3 := c.Query("iso3")

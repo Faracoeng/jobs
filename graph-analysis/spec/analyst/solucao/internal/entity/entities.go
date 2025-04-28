@@ -31,8 +31,8 @@ type VaccinationStat struct {
 
 
 type VaccineApproval struct {
-   VaccineName string
-   Date        time.Time
+	Date        time.Time
+	VaccineName string // apenas para o ETL, nao precisa existir no Neo4j
 }
 
 
