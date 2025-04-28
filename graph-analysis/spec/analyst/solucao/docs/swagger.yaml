@@ -1,12 +1,4 @@
 basePath: /
-definitions:
-  handler.CovidStatsResponse:
-    properties:
-      total_cases:
-        type: integer
-      total_deaths:
-        type: integer
-    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -14,84 +6,5 @@ info:
     e vacinas
   title: API de Análise COVID-19
   version: "1.0"
-paths:
-  /covid-stats:
-    get:
-      consumes:
-      - application/json
-      description: Retorna o total acumulado de casos e mortes por COVID-19 em um
-        país e data específicos
-      parameters:
-      - description: Código ISO3 do país
-        in: query
-        name: iso3
-        required: true
-        type: string
-      - description: Data no formato YYYY-MM-DD
-        in: query
-        name: date
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handler.CovidStatsResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Total de casos e mortes
-      tags:
-      - covid
-  /vaccinated:
-    get:
-      consumes:
-      - application/json
-      description: Retorna o total de vacinas aplicadas por país e data
-      parameters:
-      - description: Código ISO3 do país
-        in: query
-        name: iso3
-        required: true
-        type: string
-      - description: Data no formato YYYY-MM-DD
-        in: query
-        name: date
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: integer
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Total de vacinados
-      tags:
-      - vaccination
+paths: {}
 swagger: "2.0"
